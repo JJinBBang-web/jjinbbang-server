@@ -1,7 +1,11 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
 logging:
   level:
     root: warn
     com.jjinbbang.server: debug
-
-# 테스트는 이 프로파일로만 돈다. 운영·개발 프로파일을 테스트에서 활성화하지 않는다.
-# 엔티티 작업 후 Testcontainers(MySQL) 설정이 여기 붙는다 — CLAUDE.md "인수인계" 참조
