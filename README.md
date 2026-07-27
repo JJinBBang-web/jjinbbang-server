@@ -49,6 +49,21 @@ com.jjinbbang.server
 > 자동화 에이전트의 저장소 작업 규칙은 루트 [`AGENTS.md`](AGENTS.md)를
 > 유일한 진입점으로 사용한다.
 
+### AI 도구별 규칙 참조
+
+프로젝트 컨벤션의 단일 원본은 [`AGENTS.md`](AGENTS.md)다. Codex뿐 아니라
+Claude Code와 Gemini CLI를 사용할 때도 작업 시작 전에 루트 `AGENTS.md`를
+직접 읽고 따른다.
+
+| 도구 | 참조 규칙 |
+| --- | --- |
+| Codex | 루트 [`AGENTS.md`](AGENTS.md)를 직접 사용 |
+| Claude Code | 작업 시작 전에 루트 [`AGENTS.md`](AGENTS.md)를 직접 읽고 준수 |
+| Gemini CLI | 작업 시작 전에 루트 [`AGENTS.md`](AGENTS.md)를 직접 읽고 준수 |
+
+컨벤션을 변경할 때는 `AGENTS.md`를 먼저 수정하고, 사람이 확인할 README 요약도
+같은 변경에서 갱신한다. 도구별 별도 규칙 파일은 만들지 않는다.
+
 ### 브랜치
 
 기본 승격 흐름은 `작업 브랜치 → develop → main`이다. 운영 장애처럼 일반 승격
@@ -126,7 +141,7 @@ com.jjinbbang.server
 throw ReviewErrorCode.REVIEW_NOT_FOUND.exception();
 ```
 
-컨벤션 전체는 [`.gemini/styleguide.md`](.gemini/styleguide.md), 작업 맥락은 [`CLAUDE.md`](CLAUDE.md)를 본다.
+컨벤션 전체와 자동화 에이전트 작업 규칙은 [`AGENTS.md`](AGENTS.md)를 본다.
 
 ## 현재 상태
 
