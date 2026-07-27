@@ -1,0 +1,4 @@
+logging:
+  level:
+    root: info
+    com.jjinbbang.server: debug

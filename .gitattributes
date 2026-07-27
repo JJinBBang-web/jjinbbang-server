@@ -1,0 +1,7 @@
+# 저장소 안에는 LF 로 저장하고 체크아웃할 때 각자 OS 에 맞게 내보낸다.
+* text=auto
+
+# 아래는 Spring Initializr 기본값 (특정 규칙이 위 * 규칙을 덮는다)
+/gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary

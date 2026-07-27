@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: jjinbbang-server
+  profiles:
+    default: local
+  web:
+    error:
+      whitelabel:
+        enabled: false
+
+server:
+  port: 8080
+
