@@ -61,3 +61,7 @@ application-local-*.yml
 # 로컬 경로 · 팀원 실명 분담 · 내부 운영 규칙은 여기 두고 커밋하지 않는다 (CLAUDE.md "공개 저장소")
 CLAUDE.local.md
 .claude/settings.local.json
+
+### OS ###
+.DS_Store
+Thumbs.db
