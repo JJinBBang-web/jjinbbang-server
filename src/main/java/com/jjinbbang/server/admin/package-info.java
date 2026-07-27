@@ -4,7 +4,8 @@
  * <p>어드민 웹은 이 서버의 관리자 API를 직접 호출한다. Authentik 인증·권한 검증과
  * 감사 기록({@code action_history})도 <b>이 서버의 책임</b>이다.
  *
- * <p>구성은 {@code domain}과 같다 — {@code controller · service · repository · entity · dto}.
+ * <p>구성은 {@code domain}과 같다 —
+ * {@code controller · service · repository · dto · entity · type · id · converter}.
  * 어드민 전용 테이블({@code admins}, {@code prohibited_words}, {@code action_history} 등)의 엔티티가 여기 들어온다.
  *
  * <p><b>경계 규칙</b>

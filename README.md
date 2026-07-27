@@ -37,7 +37,22 @@ com.jjinbbang.server
 └── admin/        어드민 도메인 (administrator, verification, moderation, dashboard)
 ```
 
-도메인 하나는 `controller · service · repository · entity · dto` 한 세트다.
+도메인 하나는 필요한 범위에서 다음 구조를 사용한다.
+
+```text
+<domain>/
+├── controller/   API 진입점
+├── service/      유스케이스
+├── repository/   저장소
+├── dto/          API 요청·응답
+├── entity/       @Entity
+├── type/         도메인 enum
+├── id/           @Embeddable 복합키
+└── converter/    복잡한 JPA 변환이 있을 때만 생성
+```
+
+단순한 enum DB 문자열은 Jakarta Persistence 3.2의 `@EnumeratedValue`로
+매핑한다. API DTO 변환과 JPA 영속성 변환은 서로 다른 책임으로 관리한다.
 의존 방향은 `admin` → `domain` 한 방향만 허용한다.
 
 ## Git 컨벤션

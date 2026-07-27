@@ -81,7 +81,11 @@
 - `global`은 횡단 관심사, `domain`은 서비스 도메인, `admin`은 관리자
   도메인이다.
 - 의존 방향은 `admin → domain`만 허용하며 `domain`은 `admin`을 참조하지 않는다.
-- 도메인 내부는 `controller`, `service`, `repository`, `entity`, `dto`로 구성한다.
+- 도메인 내부는 필요한 범위에서 `controller`, `service`, `repository`, `dto`,
+  `entity`, `type`, `id`, `converter`로 구성한다.
+- `entity`에는 `@Entity`, `type`에는 도메인 enum, `id`에는 `@Embeddable`
+  복합키, `converter`에는 `AttributeConverter`만 둔다. 사용하지 않는 빈
+  패키지는 만들지 않는다.
 - 관리자 웹은 이 서버의 관리자 API를 직접 호출한다.
 
 ## JPA와 Flyway
@@ -89,6 +93,11 @@
 - Flyway가 스키마의 유일한 변경 주체다.
 - Hibernate는 `ddl-auto: validate`만 사용한다.
 - 적용된 migration 파일은 수정하지 않고 다음 버전 파일을 추가한다.
+- DB의 단일 문자열과 enum 상수를 매핑할 때는 Jakarta Persistence 3.2의
+  `@EnumeratedValue`를 우선한다. 복잡한 영속성 변환에만 `AttributeConverter`를
+  사용하며 DB 값 변환을 서비스나 DTO 계층으로 넘기지 않는다.
+- API 요청·응답 DTO와 도메인 타입의 변환은 DTO mapper 또는 팩토리가 담당하며,
+  JPA 영속성 매핑과 혼합하지 않는다.
 - 엔티티 연관관계는 기본적으로 LAZY 단방향으로 매핑하고, 실제 탐색 요구가
   확인된 경우에만 양방향을 추가한다.
 - datasource 비밀번호와 홈랩 접속 정보는 환경 변수로 주입하며 저장소에
