@@ -1,6 +1,7 @@
 package com.jjinbbang.server.admin.verification.entity;
 
 import com.jjinbbang.server.admin.administrator.entity.Admin;
+import com.jjinbbang.server.admin.verification.type.AdmissionCertificateStatus;
 import com.jjinbbang.server.domain.user.entity.User;
 import com.jjinbbang.server.global.persistence.CreatedAtEntity;
 

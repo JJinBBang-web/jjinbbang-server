@@ -1,4 +1,4 @@
-package com.jjinbbang.server.admin.moderation.entity;
+package com.jjinbbang.server.admin.moderation.type;
 
 public enum ReportStatus {
 	PENDING,

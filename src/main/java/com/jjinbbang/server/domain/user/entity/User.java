@@ -3,6 +3,8 @@ package com.jjinbbang.server.domain.user.entity;
 import java.time.LocalDateTime;
 
 import com.jjinbbang.server.domain.common.entity.University;
+import com.jjinbbang.server.domain.user.type.Provider;
+import com.jjinbbang.server.domain.user.type.VerificationStatus;
 import com.jjinbbang.server.global.persistence.SoftDeleteEntity;
 
 import jakarta.persistence.Column;

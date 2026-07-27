@@ -1,4 +1,4 @@
-package com.jjinbbang.server.admin.verification.entity;
+package com.jjinbbang.server.admin.verification.type;
 
 public enum AdmissionCertificateStatus {
 	PENDING,

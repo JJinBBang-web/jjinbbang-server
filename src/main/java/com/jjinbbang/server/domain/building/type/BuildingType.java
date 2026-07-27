@@ -1,4 +1,4 @@
-package com.jjinbbang.server.domain.building.entity;
+package com.jjinbbang.server.domain.building.type;
 
 public enum BuildingType {
 	ALL,

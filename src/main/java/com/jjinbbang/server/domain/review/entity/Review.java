@@ -2,6 +2,8 @@ package com.jjinbbang.server.domain.review.entity;
 
 import com.jjinbbang.server.domain.agency.entity.Agency;
 import com.jjinbbang.server.domain.building.entity.Building;
+import com.jjinbbang.server.domain.review.type.ReviewStatus;
+import com.jjinbbang.server.domain.review.type.ReviewType;
 import com.jjinbbang.server.domain.user.entity.User;
 import com.jjinbbang.server.global.persistence.SoftDeleteEntity;
 

@@ -1,5 +1,7 @@
 package com.jjinbbang.server.domain.review.entity;
 
+import com.jjinbbang.server.domain.review.type.DormFloor;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

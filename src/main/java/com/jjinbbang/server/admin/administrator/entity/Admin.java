@@ -2,6 +2,7 @@ package com.jjinbbang.server.admin.administrator.entity;
 
 import java.time.LocalDateTime;
 
+import com.jjinbbang.server.admin.administrator.type.AdminStatus;
 import com.jjinbbang.server.global.persistence.UpdatedAtEntity;
 
 import jakarta.persistence.Column;

@@ -1,5 +1,6 @@
 package com.jjinbbang.server.domain.building.entity;
 
+import com.jjinbbang.server.domain.building.type.BuildingType;
 import com.jjinbbang.server.domain.common.entity.Campus;
 
 import jakarta.persistence.Column;

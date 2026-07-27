@@ -1,4 +1,4 @@
-package com.jjinbbang.server.domain.review.entity;
+package com.jjinbbang.server.domain.agency.id;
 
 import java.io.Serializable;
 
@@ -13,11 +13,11 @@ import lombok.NoArgsConstructor;
 @EqualsAndHashCode
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class DormitoryFacilityId implements Serializable {
+public class AgencyLikeId implements Serializable {
 
-	@Column(name = "id")
-	private Long dormReviewId;
+	@Column(name = "user_id")
+	private Long userId;
 
-	@Column(name = "facility_id")
-	private Long facilityId;
+	@Column(name = "agency_id")
+	private Long agencyId;
 }

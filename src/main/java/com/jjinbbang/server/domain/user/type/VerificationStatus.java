@@ -1,4 +1,4 @@
-package com.jjinbbang.server.domain.user.entity;
+package com.jjinbbang.server.domain.user.type;
 
 public enum VerificationStatus {
 	NEW_STUDENT_VERIFIED,

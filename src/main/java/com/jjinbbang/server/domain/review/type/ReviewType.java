@@ -1,4 +1,4 @@
-package com.jjinbbang.server.domain.review.entity;
+package com.jjinbbang.server.domain.review.type;
 
 public enum ReviewType {
 	GENERAL,

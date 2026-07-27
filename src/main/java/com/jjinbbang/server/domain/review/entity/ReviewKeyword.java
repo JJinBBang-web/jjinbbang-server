@@ -1,6 +1,7 @@
 package com.jjinbbang.server.domain.review.entity;
 
 import com.jjinbbang.server.domain.common.entity.Keyword;
+import com.jjinbbang.server.domain.review.id.ReviewKeywordId;
 
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;

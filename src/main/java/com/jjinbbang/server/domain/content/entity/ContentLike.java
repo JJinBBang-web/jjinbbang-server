@@ -1,5 +1,6 @@
 package com.jjinbbang.server.domain.content.entity;
 
+import com.jjinbbang.server.domain.content.id.ContentLikeId;
 import com.jjinbbang.server.domain.user.entity.User;
 
 import jakarta.persistence.EmbeddedId;

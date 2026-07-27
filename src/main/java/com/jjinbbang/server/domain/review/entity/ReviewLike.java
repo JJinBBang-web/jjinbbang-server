@@ -1,5 +1,6 @@
 package com.jjinbbang.server.domain.review.entity;
 
+import com.jjinbbang.server.domain.review.id.ReviewLikeId;
 import com.jjinbbang.server.domain.user.entity.User;
 
 import jakarta.persistence.EmbeddedId;

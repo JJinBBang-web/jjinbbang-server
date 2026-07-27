@@ -1,6 +1,8 @@
 package com.jjinbbang.server.domain.review.entity;
 
 import com.jjinbbang.server.domain.common.entity.Facility;
+import com.jjinbbang.server.domain.review.id.DormitoryFacilityId;
+import com.jjinbbang.server.domain.review.type.UsageType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;

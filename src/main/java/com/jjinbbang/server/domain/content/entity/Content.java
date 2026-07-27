@@ -1,10 +1,12 @@
 package com.jjinbbang.server.domain.content.entity;
 
+import com.jjinbbang.server.domain.content.type.ContentCategory;
 import com.jjinbbang.server.global.persistence.SoftDeleteEntity;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -27,7 +29,7 @@ public class Content extends SoftDeleteEntity {
 	@Column(name = "thumbnail_image", nullable = false, length = 2048)
 	private String thumbnailImage;
 
-	@Convert(converter = ContentCategoryConverter.class)
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
 	private ContentCategory category;
 

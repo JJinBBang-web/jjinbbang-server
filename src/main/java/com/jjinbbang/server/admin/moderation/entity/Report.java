@@ -1,5 +1,6 @@
 package com.jjinbbang.server.admin.moderation.entity;
 
+import com.jjinbbang.server.admin.moderation.type.ReportStatus;
 import com.jjinbbang.server.domain.review.entity.Review;
 import com.jjinbbang.server.domain.user.entity.User;
 import com.jjinbbang.server.global.persistence.CreatedAtEntity;

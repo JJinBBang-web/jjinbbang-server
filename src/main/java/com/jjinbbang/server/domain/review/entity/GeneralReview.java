@@ -1,8 +1,11 @@
 package com.jjinbbang.server.domain.review.entity;
 
+import com.jjinbbang.server.domain.review.type.ContractType;
+
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -33,7 +36,7 @@ public class GeneralReview {
 	@Column(nullable = false)
 	private Double area;
 
-	@Convert(converter = ContractTypeConverter.class)
+	@Enumerated(EnumType.STRING)
 	@Column(name = "contract_type", nullable = false, length = 20)
 	private ContractType contractType;
 
