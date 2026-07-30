@@ -1,6 +1,9 @@
 package com.jjinbbang.server;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.Set;
 
@@ -16,9 +19,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -36,6 +41,7 @@ import jakarta.persistence.EntityManagerFactory;
  * 테스트를 만들지 않는다.
  */
 @SpringBootTest
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Testcontainers
 @DisplayName("애플리케이션 컨텍스트")
@@ -65,6 +71,8 @@ class JjinbbangServerApplicationTests {
 		"review_keywords",
 		"review_likes",
 		"reviews",
+		"SPRING_SESSION",
+		"SPRING_SESSION_ATTRIBUTES",
 		"universities",
 		"users"
 	);
@@ -82,6 +90,9 @@ class JjinbbangServerApplicationTests {
 	@Autowired
 	EntityManager entityManager;
 
+	@Autowired
+	MockMvc mockMvc;
+
 	@Test
 	@DisplayName("Flyway 스키마와 전체 엔티티 매핑이 일치한다")
 	void contextLoads() {
@@ -95,12 +106,20 @@ class JjinbbangServerApplicationTests {
 			""", String.class));
 
 		assertThat(actualTables).containsExactlyInAnyOrderElementsOf(EXPECTED_TABLES);
-		assertThat(entityManagerFactory.getMetamodel().getEntities()).hasSize(EXPECTED_TABLES.size());
+		assertThat(entityManagerFactory.getMetamodel().getEntities()).hasSize(EXPECTED_TABLES.size() - 2);
 		assertThat(entityManagerFactory.getMetamodel().getEntities())
 			.allSatisfy(entity -> assertThat(entity.getJavaType().getPackageName()).endsWith(".entity"));
 		assertThat(entityManagerFactory.getMetamodel().getEmbeddables())
 			.hasSize(6)
 			.allSatisfy(embeddable -> assertThat(embeddable.getJavaType().getPackageName()).endsWith(".id"));
+	}
+
+	@Test
+	@DisplayName("OIDC 설정이 없는 환경에서도 관리자 API는 기본 거부된다")
+	void adminApiIsDeniedWithoutOidcConfiguration() throws Exception {
+		mockMvc.perform(get("/api/admin/auth/me"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.errorCode").value("AUTHENTICATION_REQUIRED"));
 	}
 
 	@Test
