@@ -16,6 +16,10 @@ spring:
     locations: classpath:db/migration
     clean-disabled: true
     validate-on-migrate: true
+  session:
+    timeout: 8h
+    jdbc:
+      initialize-schema: never
   web:
     error:
       whitelabel:
@@ -23,3 +27,10 @@ spring:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        name: JJINBBANG_ADMIN_SESSION
+        http-only: true
+        same-site: lax
