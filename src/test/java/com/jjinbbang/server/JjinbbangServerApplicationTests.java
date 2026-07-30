@@ -104,6 +104,52 @@ class JjinbbangServerApplicationTests {
 	}
 
 	@Test
+	@DisplayName("연관관계 키는 도메인을 드러내는 컬럼명과 FK를 사용한다")
+	void relationshipKeysUseDomainColumnNames() {
+		JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+
+		Set<String> actualForeignKeys = Set.copyOf(jdbcTemplate.queryForList("""
+			SELECT CONCAT(table_name, '.', column_name, '->', referenced_table_name, '.', referenced_column_name)
+			FROM information_schema.key_column_usage
+			WHERE table_schema = DATABASE()
+			  AND table_name IN (
+			      'review_keywords',
+			      'dormitory_facilities',
+			      'prohibited_word_flags',
+			      'contents_likes'
+			  )
+			  AND referenced_table_name IS NOT NULL
+			""", String.class));
+
+		Set<String> actualPrimaryKeyColumns = Set.copyOf(jdbcTemplate.queryForList("""
+			SELECT CONCAT(table_name, '.', column_name)
+			FROM information_schema.key_column_usage
+			WHERE table_schema = DATABASE()
+			  AND table_name IN ('review_keywords', 'dormitory_facilities', 'contents_likes')
+			  AND constraint_name = 'PRIMARY'
+			""", String.class));
+
+		assertThat(actualPrimaryKeyColumns).containsExactlyInAnyOrder(
+			"review_keywords.review_id",
+			"review_keywords.keyword_id",
+			"dormitory_facilities.dorm_review_id",
+			"dormitory_facilities.facility_id",
+			"contents_likes.content_id",
+			"contents_likes.user_id"
+		);
+		assertThat(actualForeignKeys).containsExactlyInAnyOrder(
+			"review_keywords.review_id->reviews.id",
+			"review_keywords.keyword_id->keywords.id",
+			"dormitory_facilities.dorm_review_id->dorm_reviews.id",
+			"dormitory_facilities.facility_id->facilities.id",
+			"prohibited_word_flags.review_id->reviews.id",
+			"prohibited_word_flags.prohibited_word_id->prohibited_words.id",
+			"contents_likes.content_id->contents.id",
+			"contents_likes.user_id->users.id"
+		);
+	}
+
+	@Test
 	@Transactional
 	@DisplayName("커스텀 문자열 enum 값을 converter 없이 읽고 쓴다")
 	void customEnumValueRoundTrip() {
