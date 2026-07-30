@@ -40,6 +40,9 @@ Testcontainers가 임시 MySQL을 생성하고, 홈랩에서는 배포된 MySQL�
   MySQL의 Spring Session 테이블에서 공유한다.
 - 로그인 시작 경로는 `/oauth2/authorization/authentik`, 로그아웃은 CSRF
   토큰을 포함한 `POST /api/admin/auth/logout`이다.
+- 각 관리자 API 요청에서 로컬 계정의 `ACTIVE` 상태와 OIDC ID Token 만료를
+  다시 확인한다. 계정 비활성화는 즉시 세션을 폐기하고, Authentik 그룹 권한
+  회수는 현재 ID Token 만료 시점에 강제 재로그인되어 반영된다.
 
 운영 환경에는 다음 값을 Secret과 ConfigMap으로 주입한다.
 

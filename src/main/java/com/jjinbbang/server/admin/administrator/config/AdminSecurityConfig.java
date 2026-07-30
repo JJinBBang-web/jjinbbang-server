@@ -9,10 +9,12 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
 
 import com.jjinbbang.server.admin.administrator.security.AdminAccessDeniedHandler;
 import com.jjinbbang.server.admin.administrator.security.AdminAuthenticationEntryPoint;
 import com.jjinbbang.server.admin.administrator.security.AdminOidcUserService;
+import com.jjinbbang.server.admin.administrator.security.AdminSessionValidationFilter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +30,7 @@ public class AdminSecurityConfig {
 	private final AdminAuthenticationEntryPoint authenticationEntryPoint;
 	private final AdminAccessDeniedHandler accessDeniedHandler;
 	private final AdminOidcUserService oidcUserService;
+	private final AdminSessionValidationFilter sessionValidationFilter;
 
 	@Bean
 	SecurityFilterChain adminSecurityFilterChain(
@@ -55,14 +58,15 @@ public class AdminSecurityConfig {
 				.defaultSuccessUrl(loginSuccessUri, true)
 				.failureUrl("/login?error=authentication_failed")
 			)
-			.logout(logout -> logout
+				.logout(logout -> logout
 				.logoutUrl("/api/admin/auth/logout")
 				.logoutSuccessHandler(logoutSuccessHandler)
 				.invalidateHttpSession(true)
 				.clearAuthentication(true)
 				.deleteCookies("JJINBBANG_ADMIN_SESSION")
-			)
-			.csrf(Customizer.withDefaults());
+				)
+				.addFilterAfter(sessionValidationFilter, OAuth2LoginAuthenticationFilter.class)
+				.csrf(Customizer.withDefaults());
 
 		return http.build();
 	}
