@@ -48,11 +48,11 @@
 ## 브랜치
 
 ```text
-<type>/<topic>-#<issue-number>
+<type>/<topic>-<issue-number>
 ```
 
 - 허용 type: `feat`, `fix`, `refactor`, `chore`, `test`, `docs`, `hotfix`
-- 예시: `feat/authentik-login-#12`
+- 예시: `feat/authentik-login-12`
 - 저장소 초기 구축만 `init/<topic>`을 허용한다.
 - 기본 승격 흐름: `작업 브랜치 → develop → main`
 - `main` 직접 hotfix는 일반 승격으로 대응할 수 없는 운영 장애에만 제안하고

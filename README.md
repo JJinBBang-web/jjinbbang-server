@@ -85,18 +85,18 @@ Claude Code와 Gemini CLI를 사용할 때도 작업 시작 전에 루트 `AGENT
 흐름을 기다릴 수 없는 경우가 아니라면 `main`에 직접 반영하지 않는다.
 
 ```text
-<type>/<topic>-#<issue-number>
+<type>/<topic>-<issue-number>
 ```
 
 | Type | 용도 | 예시 |
 | --- | --- | --- |
-| `feat` | 기능 추가 | `feat/authentik-login-#12` |
-| `fix` | 버그 수정 | `fix/review-status-#34` |
-| `refactor` | 기능 변경 없는 구조 개선 | `refactor/entity-relation-#56` |
-| `chore` | 빌드·설정·의존성 작업 | `chore/flyway-#78` |
-| `test` | 테스트 추가·수정 | `test/schema-validation-#90` |
-| `docs` | 문서 변경 | `docs/git-convention-#91` |
-| `hotfix` | 승인된 운영 긴급 수정 | `hotfix/login-failure-#92` |
+| `feat` | 기능 추가 | `feat/authentik-login-12` |
+| `fix` | 버그 수정 | `fix/review-status-34` |
+| `refactor` | 기능 변경 없는 구조 개선 | `refactor/entity-relation-56` |
+| `chore` | 빌드·설정·의존성 작업 | `chore/flyway-78` |
+| `test` | 테스트 추가·수정 | `test/schema-validation-90` |
+| `docs` | 문서 변경 | `docs/git-convention-91` |
+| `hotfix` | 승인된 운영 긴급 수정 | `hotfix/login-failure-92` |
 
 `init/<topic>`은 저장소 초기 구축 작업에서만 이슈 번호 없이 사용할 수 있다.
 
