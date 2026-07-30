@@ -28,6 +28,34 @@ DB_PASSWORD='jjinbbang' \
 Flyway 실행을 위한 별도 Docker Compose는 필요하지 않다. 로컬·CI 통합 테스트는
 Testcontainers가 임시 MySQL을 생성하고, 홈랩에서는 배포된 MySQL을 데이터소스로 사용한다.
 
+## 관리자 Authentik SSO
+
+- 관리자 로그인은 Authentik OIDC Authorization Code flow를 사용한다.
+- 회원가입, 비밀번호와 MFA는 Authentik에서만 관리한다.
+- `jjinbbang-backoffice-admins` 그룹과 로컬 `admins.status=ACTIVE`를 모두
+  만족해야 한다.
+- 첫 로그인 시 `(issuer, subject)`로 `admins` 행을 만들고 이후 프로필과
+  마지막 로그인 시각을 동기화한다.
+- 브라우저에는 `JJINBBANG_ADMIN_SESSION` HttpOnly 쿠키만 저장하며 세션 본문은
+  MySQL의 Spring Session 테이블에서 공유한다.
+- 로그인 시작 경로는 `/oauth2/authorization/authentik`, 로그아웃은 CSRF
+  토큰을 포함한 `POST /api/admin/auth/logout`이다.
+
+운영 환경에는 다음 값을 Secret과 ConfigMap으로 주입한다.
+
+```text
+AUTHENTIK_CLIENT_ID
+AUTHENTIK_CLIENT_SECRET
+AUTHENTIK_ISSUER_URI
+AUTHENTIK_ADMIN_GROUP
+ADMIN_LOGIN_SUCCESS_URI
+```
+
+OIDC는 `app.auth.oidc-enabled=true`인 운영 프로파일에서만 활성화된다. 값이 없는
+로컬·테스트 환경에서도 관리자 API는 기본 거부된다. 로그인 성공 기본 경로는
+`/api/admin/auth/me`이며, 프론트엔드 연동 시 `ADMIN_LOGIN_SUCCESS_URI`로
+화면 경로를 지정할 수 있다.
+
 ## 패키지 구조
 
 ```
@@ -160,5 +188,6 @@ throw ReviewErrorCode.REVIEW_NOT_FOUND.exception();
 
 ## 현재 상태
 
-`global` 응답·예외 처리, 전체 초기 엔티티, MySQL datasource, Flyway V1이 구성되어 있다.
+`global` 응답·예외 처리, 전체 초기 엔티티, MySQL datasource, Flyway와 관리자
+Authentik SSO가 구성되어 있다.
 Testcontainers 통합 테스트에서 Flyway 마이그레이션과 Hibernate 스키마 검증을 함께 수행한다.
