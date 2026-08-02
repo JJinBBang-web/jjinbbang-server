@@ -19,6 +19,14 @@ public final class PageRequests {
 	public static final int DEFAULT_SIZE = 20;
 	public static final int MAX_SIZE = 100;
 
+	/**
+	 * {@code @RequestParam(defaultValue = ...)} 에 넣을 {@link #DEFAULT_SIZE}.
+	 *
+	 * <p>애너테이션 속성은 컴파일 타임 상수만 받으므로 문자열이 따로 필요하다.
+	 * 컨트롤러마다 {@code "20"} 을 적으면 {@link #DEFAULT_SIZE} 를 바꿔도 따라오지 않는다.
+	 */
+	public static final String DEFAULT_SIZE_PARAM = "" + DEFAULT_SIZE;
+
 	private PageRequests() {
 	}
 

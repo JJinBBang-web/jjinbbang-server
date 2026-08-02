@@ -37,7 +37,7 @@ public class ReportController {
 	public ResTemplate<ReportListResponse> findAll(
 		@RequestParam(name = "status", required = false) ReportStatus status,
 		@RequestParam(name = "page", defaultValue = "0") int page,
-		@RequestParam(name = "size", defaultValue = "20") int size
+		@RequestParam(name = "size", defaultValue = PageRequests.DEFAULT_SIZE_PARAM) int size
 	) {
 		ReportListResponse response = reportService.findAll(status, PageRequests.of(page, size, LATEST_FIRST));
 

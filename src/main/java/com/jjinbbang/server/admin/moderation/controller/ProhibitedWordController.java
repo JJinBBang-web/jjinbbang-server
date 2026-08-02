@@ -53,7 +53,7 @@ public class ProhibitedWordController {
 	public ResTemplate<ProhibitedWordListResponse> findAll(
 		@RequestParam(name = "enabled", required = false) Boolean enabled,
 		@RequestParam(name = "page", defaultValue = "0") int page,
-		@RequestParam(name = "size", defaultValue = "20") int size
+		@RequestParam(name = "size", defaultValue = PageRequests.DEFAULT_SIZE_PARAM) int size
 	) {
 		ProhibitedWordListResponse response =
 			prohibitedWordService.findAll(enabled, PageRequests.of(page, size, LATEST_FIRST));
