@@ -16,7 +16,8 @@ import com.jjinbbang.server.domain.user.entity.User;
  *   <li>{@code reports}는 {@code created_at}만 가진다 — {@code updatedAt}은 내려줄 수 없다.</li>
  * </ul>
  *
- * <p>{@code reports.user_id}가 nullable이라 탈퇴 회원의 신고는 신고자 두 필드가 {@code null}로 나간다.
+ * <p>{@code reports.user_id}가 nullable이라 신고자 두 필드가 {@code null}로 나갈 수 있다.
+ * 회원 탈퇴는 소프트 삭제라 그것만으로는 null이 되지 않는다 — 근거는 {@code ReportRepository} 참조.
  */
 public record ReportResponse(
 	Long reportId,

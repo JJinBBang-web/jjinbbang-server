@@ -99,8 +99,8 @@ class ReportServiceTest {
 	}
 
 	@Test
-	@DisplayName("탈퇴 회원의 신고는 신고자 정보가 null 로 나간다")
-	void 탈퇴_회원의_신고는_신고자가_null() {
+	@DisplayName("신고자가 없는 신고는 신고자 정보가 null 로 나간다")
+	void 신고자가_없으면_신고자_정보가_null() {
 		// given — reports.user_id 는 nullable 이다
 		given(reportRepository.findPageWithDetails(PAGEABLE))
 			.willReturn(new PageImpl<>(List.of(report(1L, ReportStatus.PENDING, null)), PAGEABLE, 1));
