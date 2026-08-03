@@ -4,7 +4,9 @@ import java.util.List;
 import java.util.Set;
 
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateListResponse;
+import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateResponse;
 import com.jjinbbang.server.admin.verification.entity.AdmissionCertificate;
+import com.jjinbbang.server.admin.verification.exception.AdmissionCertificateErrorCode;
 import com.jjinbbang.server.admin.verification.repository.AdmissionCertificateRepository;
 import com.jjinbbang.server.admin.verification.type.AdmissionCertificateStatus;
 
@@ -47,5 +49,20 @@ public class AdmissionCertificateService {
 			: admissionCertificateRepository.findReuploadedCertificateIds(certificateIds);
 
 		return AdmissionCertificateListResponse.from(certificates, reuploadedCertificateIds);
+	}
+
+	public AdmissionCertificateResponse getAdmissionCertificate(Long certificateId) {
+		AdmissionCertificate certificate = admissionCertificateRepository.findDetailById(certificateId)
+			.orElseThrow(AdmissionCertificateErrorCode.ADMISSION_CERTIFICATE_NOT_FOUND::exception);
+
+		// 신청 시각이 가장 가까운 이전 제출을 재업로드 원본으로 사용한다.
+		Long reuploadedId = admissionCertificateRepository.findPreviousCertificateIds(
+			certificate.getUser().getId(),
+			certificate.getCreatedAt(),
+			certificate.getId(),
+			PageRequest.of(0, 1)
+		).stream().findFirst().orElse(null);
+
+		return AdmissionCertificateResponse.from(certificate, reuploadedId);
 	}
 }
