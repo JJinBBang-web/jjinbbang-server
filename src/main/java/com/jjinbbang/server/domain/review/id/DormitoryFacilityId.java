@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class DormitoryFacilityId implements Serializable {
 
-	@Column(name = "id")
+	@Column(name = "dorm_review_id")
 	private Long dormReviewId;
 
 	@Column(name = "facility_id")

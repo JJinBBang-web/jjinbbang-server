@@ -30,6 +30,6 @@ public class ProhibitedWordFlag extends CreatedAtEntity {
 	private Review review;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "prohibited_words_id", nullable = false)
+	@JoinColumn(name = "prohibited_word_id", nullable = false)
 	private ProhibitedWord prohibitedWord;
 }

@@ -29,7 +29,7 @@ public class DormitoryFacility {
 
 	@MapsId("dormReviewId")
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "id", nullable = false)
+	@JoinColumn(name = "dorm_review_id", nullable = false)
 	private DormReview dormReview;
 
 	@MapsId("facilityId")

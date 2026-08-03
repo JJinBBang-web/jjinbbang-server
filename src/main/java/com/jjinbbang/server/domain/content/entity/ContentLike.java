@@ -25,7 +25,7 @@ public class ContentLike {
 
 	@MapsId("contentId")
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "contents_id", nullable = false)
+	@JoinColumn(name = "content_id", nullable = false)
 	private Content content;
 
 	@MapsId("userId")

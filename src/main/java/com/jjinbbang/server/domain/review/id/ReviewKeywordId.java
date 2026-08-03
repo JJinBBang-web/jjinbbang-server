@@ -15,9 +15,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class ReviewKeywordId implements Serializable {
 
-	@Column(name = "id")
+	@Column(name = "review_id")
 	private Long reviewId;
 
-	@Column(name = "id2")
+	@Column(name = "keyword_id")
 	private Long keywordId;
 }

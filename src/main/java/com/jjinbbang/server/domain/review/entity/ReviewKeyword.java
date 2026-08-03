@@ -25,11 +25,11 @@ public class ReviewKeyword {
 
 	@MapsId("reviewId")
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "id", nullable = false)
+	@JoinColumn(name = "review_id", nullable = false)
 	private Review review;
 
 	@MapsId("keywordId")
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "id2", nullable = false)
+	@JoinColumn(name = "keyword_id", nullable = false)
 	private Keyword keyword;
 }

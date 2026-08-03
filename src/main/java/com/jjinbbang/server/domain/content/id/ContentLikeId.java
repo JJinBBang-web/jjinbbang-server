@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class ContentLikeId implements Serializable {
 
-	@Column(name = "contents_id")
+	@Column(name = "content_id")
 	private Long contentId;
 
 	@Column(name = "user_id")
