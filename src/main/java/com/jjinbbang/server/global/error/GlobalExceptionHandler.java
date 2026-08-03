@@ -6,9 +6,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -54,6 +56,24 @@ public class GlobalExceptionHandler {
 
 		return ResponseEntity.status(GlobalErrorCode.INVALID_INPUT.getStatus())
 			.body(ErrorResponse.of(GlobalErrorCode.INVALID_INPUT, GlobalErrorCode.INVALID_INPUT.getMessage(), errors));
+	}
+
+	/** 경로·쿼리 파라미터 값 검증 실패 */
+	@ExceptionHandler(HandlerMethodValidationException.class)
+	public ResponseEntity<ErrorResponse> handleMethodValidation(HandlerMethodValidationException e) {
+		log.warn("[400] {} - {}", GlobalErrorCode.INVALID_INPUT.getCode(), e.getMessage());
+
+		return ResponseEntity.status(GlobalErrorCode.INVALID_INPUT.getStatus())
+			.body(ErrorResponse.of(GlobalErrorCode.INVALID_INPUT, GlobalErrorCode.INVALID_INPUT.getMessage()));
+	}
+
+	/** 필수 쿼리 파라미터 누락 */
+	@ExceptionHandler(MissingServletRequestParameterException.class)
+	public ResponseEntity<ErrorResponse> handleMissingRequestParameter(MissingServletRequestParameterException e) {
+		log.warn("[400] {} - {}", GlobalErrorCode.INVALID_INPUT.getCode(), e.getMessage());
+
+		return ResponseEntity.status(GlobalErrorCode.INVALID_INPUT.getStatus())
+			.body(ErrorResponse.of(GlobalErrorCode.INVALID_INPUT, GlobalErrorCode.INVALID_INPUT.getMessage()));
 	}
 
 	/** 경로·쿼리 파라미터 타입 불일치 */
