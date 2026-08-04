@@ -65,4 +65,11 @@ public class User extends SoftDeleteEntity {
 
 	@Column(name = "certificate_upload_date")
 	private LocalDateTime certificateUploadDate;
+
+	/** 승인된 합격증명서 정보를 사용자 인증 상태에 반영한다. */
+	public void approveAdmissionCertificate(String certificateUrl, LocalDateTime uploadedAt) {
+		admissionCertificate = certificateUrl;
+		verificationStatus = VerificationStatus.NEW_STUDENT_VERIFIED;
+		certificateUploadDate = uploadedAt;
+	}
 }

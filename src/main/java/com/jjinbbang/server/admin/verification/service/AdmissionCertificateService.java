@@ -65,4 +65,17 @@ public class AdmissionCertificateService {
 
 		return AdmissionCertificateResponse.from(certificate, reuploadedId);
 	}
+
+	@Transactional
+	public void approveAdmissionCertificate(Long certificateId) {
+		// 동시에 같은 증명서를 처리하지 못하도록 쓰기 잠금과 함께 조회한다.
+		AdmissionCertificate certificate = admissionCertificateRepository.findByIdForUpdate(certificateId)
+			.orElseThrow(AdmissionCertificateErrorCode.ADMISSION_CERTIFICATE_NOT_FOUND::exception);
+
+		certificate.approve();
+		certificate.getUser().approveAdmissionCertificate(
+			certificate.getUrl(),
+			certificate.getCreatedAt()
+		);
+	}
 }

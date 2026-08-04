@@ -13,8 +13,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 public interface AdmissionCertificateRepository extends JpaRepository<AdmissionCertificate, Long> {
 
@@ -50,6 +53,16 @@ public interface AdmissionCertificateRepository extends JpaRepository<AdmissionC
 		WHERE certificate.id = :certificateId
 		""")
 	Optional<AdmissionCertificate> findDetailById(@Param("certificateId") Long certificateId);
+
+	// 승인 중 동일 증명서가 중복 처리되지 않도록 사용자와 함께 쓰기 잠금으로 조회한다.
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@EntityGraph(attributePaths = {"user"})
+	@Query("""
+		SELECT certificate
+		FROM AdmissionCertificate certificate
+		WHERE certificate.id = :certificateId
+		""")
+	Optional<AdmissionCertificate> findByIdForUpdate(@Param("certificateId") Long certificateId);
 
 	// 가장 최근 제출내역 조회(날짜 기준 + 동일한 경우 ID)
 	@Query("""

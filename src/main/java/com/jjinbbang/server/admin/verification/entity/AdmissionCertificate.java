@@ -1,6 +1,7 @@
 package com.jjinbbang.server.admin.verification.entity;
 
 import com.jjinbbang.server.admin.administrator.entity.Admin;
+import com.jjinbbang.server.admin.verification.exception.AdmissionCertificateErrorCode;
 import com.jjinbbang.server.admin.verification.type.AdmissionCertificateStatus;
 import com.jjinbbang.server.domain.user.entity.User;
 import com.jjinbbang.server.global.persistence.CreatedAtEntity;
@@ -38,10 +39,18 @@ public class AdmissionCertificate extends CreatedAtEntity {
 	@JoinColumn(name = "admin_id")
 	private Admin admin;
 
-	@Column(nullable = false, length = 2048)
+	@Column(nullable = false, leㅈngth = 2048)
 	private String url;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private AdmissionCertificateStatus status;
+
+	public void approve() {
+		if (status != AdmissionCertificateStatus.PENDING) {
+			throw AdmissionCertificateErrorCode.ADMISSION_CERTIFICATE_ALREADY_PROCESSED.exception();
+		}
+
+		status = AdmissionCertificateStatus.APPROVE;
+	}
 }

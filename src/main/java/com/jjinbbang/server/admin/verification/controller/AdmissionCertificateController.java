@@ -50,4 +50,18 @@ public class AdmissionCertificateController {
 
 		return new ResTemplate<>(HttpStatus.OK, "증명서 상세 조회 성공", response);
 	}
+
+	/**
+	 * 합격증명서를 승인하고 사용자를 신입생 인증 상태로 변경한다.
+	 * 사용자의 합격증명서 URL과 업로드 일자, 인증 상태를 반영한다.
+	 * TODO: 관리자 인증이 추가되면 권한 확인
+	 */
+	@PatchMapping("/{certificateId}/approve")
+	public ResTemplate<Void> approveAdmissionCertificateStatus(
+		@PathVariable("certificateId") @Positive Long certificateId
+	) {
+		admissionCertificateService.approveAdmissionCertificate(certificateId);
+
+		return new ResTemplate<>(HttpStatus.OK, "증명서 승인 성공");
+	}
 }
