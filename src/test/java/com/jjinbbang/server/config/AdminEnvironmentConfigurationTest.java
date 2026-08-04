@@ -13,7 +13,7 @@ import org.springframework.core.io.ClassPathResource;
 class AdminEnvironmentConfigurationTest {
 
 	private static final String OIDC_ISSUER_PROPERTY =
-		"spring.security.oauth2.provider.authentik.issuer-uri";
+		"spring.security.oauth2.client.provider.authentik.issuer-uri";
 
 	@Test
 	void devAndProdProfilesExposeAuthentikIssuerAtOAuth2ProviderLevel() throws IOException {

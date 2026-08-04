@@ -17,9 +17,9 @@ spring:
               - openid
               - profile
               - email
-      provider:
-        authentik:
-          issuer-uri: ${AUTHENTIK_ISSUER_URI}
+        provider:
+          authentik:
+            issuer-uri: ${AUTHENTIK_ISSUER_URI}
 
 server:
   servlet:
