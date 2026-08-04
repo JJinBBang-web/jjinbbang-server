@@ -64,4 +64,18 @@ public class AdmissionCertificateController {
 
 		return new ResTemplate<>(HttpStatus.OK, "증명서 승인 성공");
 	}
+
+	/**
+	 * 합격증명서를 반려하고 사용자를 미인증 상태로 변경한다.
+	 * 합격증명서 상태는 REJECT, 사용자 인증 상태는 UNVERIFIED로 유지
+	 * TODO: 관리자 인증이 추가되면 권한 확인
+	 */
+	@PatchMapping("/{certificateId}/reject")
+	public ResTemplate<Void> rejectAdmissionCertificateStatus(
+		@PathVariable("certificateId") @Positive Long certificateId
+	) {
+		admissionCertificateService.rejectAdmissionCertificate(certificateId);
+
+		return new ResTemplate<>(HttpStatus.OK, "증명서 반려 성공");
+	}
 }

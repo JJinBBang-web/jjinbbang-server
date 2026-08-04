@@ -39,7 +39,7 @@ public class AdmissionCertificate extends CreatedAtEntity {
 	@JoinColumn(name = "admin_id")
 	private Admin admin;
 
-	@Column(nullable = false, leㅈngth = 2048)
+	@Column(nullable = false, length = 2048)
 	private String url;
 
 	@Enumerated(EnumType.STRING)
@@ -47,10 +47,18 @@ public class AdmissionCertificate extends CreatedAtEntity {
 	private AdmissionCertificateStatus status;
 
 	public void approve() {
+		validatePending();
+		status = AdmissionCertificateStatus.APPROVE;
+	}
+
+	public void reject() {
+		validatePending();
+		status = AdmissionCertificateStatus.REJECT;
+	}
+
+	private void validatePending() {
 		if (status != AdmissionCertificateStatus.PENDING) {
 			throw AdmissionCertificateErrorCode.ADMISSION_CERTIFICATE_ALREADY_PROCESSED.exception();
 		}
-
-		status = AdmissionCertificateStatus.APPROVE;
 	}
 }
