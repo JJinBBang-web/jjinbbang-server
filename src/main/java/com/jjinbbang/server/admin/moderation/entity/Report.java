@@ -44,4 +44,18 @@ public class Report extends CreatedAtEntity {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private ReportStatus status;
+
+	/**
+	 * 신고를 기각한다. 대상 리뷰는 그대로 두고 신고만 반려 상태로 바꾼다.
+	 *
+	 * <p>이미 처리된 신고인지는 {@link #isHandled()}로 서비스가 먼저 확인한다.
+	 */
+	public void dismiss() {
+		this.status = ReportStatus.REJECT;
+	}
+
+	/** 관리자가 이미 승인 또는 기각한 신고인가. */
+	public boolean isHandled() {
+		return status != ReportStatus.PENDING;
+	}
 }

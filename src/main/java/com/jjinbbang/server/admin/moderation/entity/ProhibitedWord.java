@@ -35,4 +35,21 @@ public class ProhibitedWord extends SoftDeleteEntity {
 
 	@Column(name = "is_enabled", nullable = false)
 	private Boolean enabled;
+
+	/**
+	 * 금칙어를 등록한다. 등록 직후에는 활성 상태다.
+	 *
+	 * <p>{@code admin}은 넣지 않는다 — {@code admin_id}가 nullable이고, 등록자를 알아내려면
+	 * 인증이 붙어야 한다. SSO 연동 때 등록자를 함께 받도록 이 팩터리를 늘린다.
+	 */
+	public static ProhibitedWord create(String word) {
+		ProhibitedWord prohibitedWord = new ProhibitedWord();
+		prohibitedWord.word = word;
+		prohibitedWord.enabled = true;
+		return prohibitedWord;
+	}
+
+	public void changeEnabled(boolean enabled) {
+		this.enabled = enabled;
+	}
 }
