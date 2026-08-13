@@ -35,6 +35,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends SoftDeleteEntity {
 
+	private static final String DEFAULT_NICKNAME = "익명의 찐빵이";
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -49,6 +51,9 @@ public class User extends SoftDeleteEntity {
 
 	@Column(name = "provider_id", nullable = false, length = 100)
 	private String providerId;
+
+	@Column(nullable = false, length = 20)
+	private String nickname = DEFAULT_NICKNAME;
 
 	@Column(name = "student_number", length = 50)
 	private String studentNumber;

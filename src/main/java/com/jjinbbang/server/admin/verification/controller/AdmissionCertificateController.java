@@ -25,7 +25,6 @@ public class AdmissionCertificateController {
 
 	/**
 	 * 합격증명서 목록을 상태별로 조회한다.
-	 * TODO: 관리자 인증이 추가되면 권한 확인
 	 */
 	@GetMapping
 	public ResTemplate<AdmissionCertificateListResponse> getAdmissionCertificateList(
@@ -41,7 +40,6 @@ public class AdmissionCertificateController {
 
 	/**
 	 * 합격증명서 ID로 상세 정보를 조회한다.
-	 * TODO: 관리자 인증이 추가되면 권한 확인
 	 */
 	@GetMapping("/{certificateId}")
 	public ResTemplate<AdmissionCertificateResponse> getAdmissionCertificate(
@@ -56,7 +54,6 @@ public class AdmissionCertificateController {
 	/**
 	 * 합격증명서를 승인하고 사용자를 신입생 인증 상태로 변경한다.
 	 * 사용자의 합격증명서 URL과 업로드 일자, 인증 상태를 반영한다.
-	 * TODO: 관리자 인증이 추가되면 권한 확인
 	 */
 	@PatchMapping("/{certificateId}/approve")
 	public ResTemplate<Void> approveAdmissionCertificateStatus(
@@ -70,7 +67,6 @@ public class AdmissionCertificateController {
 	/**
 	 * 합격증명서를 반려하고 사용자를 미인증 상태로 변경한다.
 	 * 합격증명서 상태는 REJECT, 사용자 인증 상태는 UNVERIFIED로 유지
-	 * TODO: 관리자 인증이 추가되면 권한 확인
 	 */
 	@PatchMapping("/{certificateId}/reject")
 	public ResTemplate<Void> rejectAdmissionCertificateStatus(
