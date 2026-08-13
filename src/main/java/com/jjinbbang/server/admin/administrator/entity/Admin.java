@@ -54,4 +54,35 @@ public class Admin extends UpdatedAtEntity {
 
 	@Column(name = "last_login_at")
 	private LocalDateTime lastLoginAt;
+
+	public static Admin register(
+		String oidcIssuer,
+		String oidcSubject,
+		String email,
+		String username,
+		String displayName,
+		LocalDateTime loginAt
+	) {
+		Admin admin = new Admin();
+		admin.oidcIssuer = oidcIssuer;
+		admin.oidcSubject = oidcSubject;
+		admin.email = email;
+		admin.username = username;
+		admin.displayName = displayName;
+		admin.status = AdminStatus.ACTIVE;
+		admin.lastLoginAt = loginAt;
+		return admin;
+	}
+
+	public void synchronizeProfile(
+		String email,
+		String username,
+		String displayName,
+		LocalDateTime loginAt
+	) {
+		this.email = email;
+		this.username = username;
+		this.displayName = displayName;
+		this.lastLoginAt = loginAt;
+	}
 }

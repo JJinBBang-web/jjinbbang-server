@@ -1,6 +1,10 @@
 spring:
   application:
     name: jjinbbang-server
+  # 로컬 접속 정보는 `.env` 에 둔다 (커밋되지 않음). 없으면 그냥 건너뛴다 —
+  # dev · prod 는 이 파일 없이 환경변수로 주입받는다.
+  config:
+    import: optional:file:.env[.properties]
   profiles:
     default: local
   jpa:
@@ -16,6 +20,10 @@ spring:
     locations: classpath:db/migration
     clean-disabled: true
     validate-on-migrate: true
+  session:
+    timeout: 8h
+    jdbc:
+      initialize-schema: never
   web:
     error:
       whitelabel:
@@ -23,3 +31,10 @@ spring:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        name: JJINBBANG_ADMIN_SESSION
+        http-only: true
+        same-site: lax
