@@ -1,5 +1,6 @@
 package com.jjinbbang.server.admin.verification.controller;
 
+import com.jjinbbang.server.admin.verification.dto.request.AdmissionCertificateRejectRequest;
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateListResponse;
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateResponse;
 import com.jjinbbang.server.admin.verification.service.AdmissionCertificateService;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 
@@ -72,9 +74,10 @@ public class AdmissionCertificateController {
 	 */
 	@PatchMapping("/{certificateId}/reject")
 	public ResTemplate<Void> rejectAdmissionCertificateStatus(
-		@PathVariable("certificateId") @Positive Long certificateId
+		@PathVariable("certificateId") @Positive Long certificateId,
+		@Valid @RequestBody AdmissionCertificateRejectRequest request
 	) {
-		admissionCertificateService.rejectAdmissionCertificate(certificateId);
+		admissionCertificateService.rejectAdmissionCertificate(certificateId, request.rejectReason());
 
 		return new ResTemplate<>(HttpStatus.OK, "증명서 반려 성공");
 	}

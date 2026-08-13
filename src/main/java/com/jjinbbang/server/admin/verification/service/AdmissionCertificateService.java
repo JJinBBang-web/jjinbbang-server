@@ -80,12 +80,12 @@ public class AdmissionCertificateService {
 	}
 
 	@Transactional
-	public void rejectAdmissionCertificate(Long certificateId) {
+	public void rejectAdmissionCertificate(Long certificateId, String rejectReason) {
 		// 승인과 마찬가지로 동일 증명서의 중복 처리를 쓰기 잠금으로 막는다.
 		AdmissionCertificate certificate = admissionCertificateRepository.findByIdForUpdate(certificateId)
 			.orElseThrow(AdmissionCertificateErrorCode.ADMISSION_CERTIFICATE_NOT_FOUND::exception);
 
-		certificate.reject();
+		certificate.reject(rejectReason.strip());
 		certificate.getUser().rejectAdmissionCertificate();
 	}
 }
