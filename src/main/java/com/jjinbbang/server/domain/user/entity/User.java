@@ -43,6 +43,9 @@ public class User extends SoftDeleteEntity {
 	@JoinColumn(name = "university_id", nullable = false)
 	private University university;
 
+	@Column(length = 50)
+	private String nickname;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private Provider provider;

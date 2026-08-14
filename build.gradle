@@ -34,6 +34,10 @@ dependencies {
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 
+	// JPA 정적 메타모델 — Criteria API에서 문자열 필드명 대신 Review_.user 같은 타입-세이프 참조를 쓴다.
+	// hibernate-core와 버전을 맞춘다(Spring Boot 4.1.0 관리 버전 7.4.1.Final).
+	annotationProcessor 'org.hibernate.orm:hibernate-jpamodelgen:7.4.1.Final'
+
 	// Test — 4.x 는 테스트 스타터가 모듈별로 쪼개져 있다.
 	// 새 기능 영역(data-jpa, security 등)을 추가하면 해당 -test 스타터도 같이 넣어야 한다.
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
