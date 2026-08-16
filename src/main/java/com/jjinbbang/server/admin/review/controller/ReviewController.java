@@ -5,10 +5,12 @@ import java.util.List;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.jjinbbang.server.admin.review.dto.response.ReviewDetailResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
 import com.jjinbbang.server.admin.review.service.ReviewService;
 import com.jjinbbang.server.admin.review.type.ReviewPeriodType;
@@ -53,5 +55,10 @@ public class ReviewController {
 		);
 
 		return new ResTemplate<>(HttpStatus.OK, "리뷰 목록 조회 성공", response);
+	}
+
+	@GetMapping("/{reviewId}")
+	public ResTemplate<ReviewDetailResponse> findById(@PathVariable("reviewId") Long reviewId) {
+		return new ResTemplate<>(HttpStatus.OK, "리뷰 상세 조회 성공", reviewService.findById(reviewId));
 	}
 }

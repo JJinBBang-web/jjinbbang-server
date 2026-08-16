@@ -13,12 +13,18 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.jjinbbang.server.admin.administrator.entity.ActionHistory;
+import com.jjinbbang.server.admin.administrator.repository.ActionHistoryRepository;
+import com.jjinbbang.server.admin.moderation.entity.Report;
 import com.jjinbbang.server.admin.moderation.repository.ProhibitedWordFlagRepository;
 import com.jjinbbang.server.admin.moderation.repository.ReportRepository;
+import com.jjinbbang.server.admin.review.dto.response.ReviewDetailResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
 import com.jjinbbang.server.admin.review.repository.ReviewSpecifications;
 import com.jjinbbang.server.admin.review.type.ReviewPeriodType;
 import com.jjinbbang.server.domain.review.entity.Review;
+import com.jjinbbang.server.domain.review.exception.ReviewErrorCode;
+import com.jjinbbang.server.domain.review.repository.ReviewImageRepository;
 import com.jjinbbang.server.domain.review.repository.ReviewRepository;
 import com.jjinbbang.server.domain.review.type.ReviewStatus;
 
@@ -30,8 +36,10 @@ import lombok.RequiredArgsConstructor;
 public class ReviewService {
 
 	private final ReviewRepository reviewRepository;
+	private final ReviewImageRepository reviewImageRepository;
 	private final ReportRepository reportRepository;
 	private final ProhibitedWordFlagRepository prohibitedWordFlagRepository;
+	private final ActionHistoryRepository actionHistoryRepository;
 
 	public ReviewListResponse findAll(
 		String searchKeyword,
@@ -65,5 +73,19 @@ public class ReviewService {
 				.collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
 
 		return ReviewListResponse.of(page, badWordReviewIds, reportCounts);
+	}
+
+	public ReviewDetailResponse findById(Long reviewId) {
+		Review review = reviewRepository.findDetailById(reviewId)
+			.orElseThrow(ReviewErrorCode.REVIEW_NOT_FOUND::exception);
+
+		boolean hasBadWordFlag = prohibitedWordFlagRepository.existsByReviewId(reviewId);
+		List<String> images = reviewImageRepository.findByReviewIdOrderBySortOrderAsc(reviewId).stream()
+			.map(image -> image.getUrl())
+			.toList();
+		List<Report> reports = reportRepository.findByReviewIdOrderByCreatedAtAsc(reviewId);
+		List<ActionHistory> actionHistories = actionHistoryRepository.findByReviewIdOrderByCreatedAtAsc(reviewId);
+
+		return ReviewDetailResponse.of(review, hasBadWordFlag, images, reports, actionHistories);
 	}
 }

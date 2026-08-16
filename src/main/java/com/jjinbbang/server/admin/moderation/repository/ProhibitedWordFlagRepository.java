@@ -19,4 +19,7 @@ public interface ProhibitedWordFlagRepository extends JpaRepository<ProhibitedWo
 
 	@Query("SELECT DISTINCT f.review.id FROM ProhibitedWordFlag f WHERE f.review.id IN :reviewIds")
 	List<Long> findFlaggedReviewIds(@Param("reviewIds") List<Long> reviewIds);
+
+	/** 리뷰 상세 조회는 리뷰 한 건만 확인하면 되므로 배치용 {@link #findFlaggedReviewIds}를 쓰지 않는다. */
+	boolean existsByReviewId(Long reviewId);
 }
