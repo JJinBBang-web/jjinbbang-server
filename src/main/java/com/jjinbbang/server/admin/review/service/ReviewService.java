@@ -100,4 +100,12 @@ public class ReviewService {
 
 		review.delete();
 	}
+
+	@Transactional
+	public void updateStatus(Long reviewId, ReviewStatus status) {
+		Review review = reviewRepository.findById(reviewId)
+			.orElseThrow(ReviewErrorCode.REVIEW_NOT_FOUND::exception);
+
+		review.changeStatus(status);
+	}
 }

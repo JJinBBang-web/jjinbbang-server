@@ -6,11 +6,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.jjinbbang.server.admin.review.dto.request.ReviewStatusUpdateRequest;
 import com.jjinbbang.server.admin.review.dto.response.ReviewDetailResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
 import com.jjinbbang.server.admin.review.service.ReviewService;
@@ -19,6 +22,7 @@ import com.jjinbbang.server.domain.review.type.ReviewStatus;
 import com.jjinbbang.server.global.paging.PageRequests;
 import com.jjinbbang.server.global.template.ResTemplate;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -67,5 +71,14 @@ public class ReviewController {
 	public ResTemplate<Void> delete(@PathVariable("reviewId") Long reviewId) {
 		reviewService.delete(reviewId);
 		return new ResTemplate<>(HttpStatus.OK, "리뷰 삭제 성공");
+	}
+
+	@PatchMapping("/{reviewId}/status")
+	public ResTemplate<Void> updateStatus(
+		@PathVariable("reviewId") Long reviewId,
+		@Valid @RequestBody ReviewStatusUpdateRequest request
+	) {
+		reviewService.updateStatus(reviewId, request.status());
+		return new ResTemplate<>(HttpStatus.OK, "리뷰 상태 변경 성공");
 	}
 }

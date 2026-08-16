@@ -65,4 +65,8 @@ public class Review extends SoftDeleteEntity {
 
 	@Column(name = "like_count", nullable = false)
 	private Integer likeCount;
+
+	public void changeStatus(ReviewStatus status) {
+		this.status = status;
+	}
 }
