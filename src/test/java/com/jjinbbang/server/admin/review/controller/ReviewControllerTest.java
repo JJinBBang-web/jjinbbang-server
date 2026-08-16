@@ -24,10 +24,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.jjinbbang.server.admin.review.dto.response.ReviewDetailResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewResponse;
 import com.jjinbbang.server.admin.review.service.ReviewService;
 import com.jjinbbang.server.admin.review.type.ReviewPeriodType;
+import com.jjinbbang.server.domain.review.exception.ReviewErrorCode;
 import com.jjinbbang.server.domain.review.type.ReviewStatus;
 import com.jjinbbang.server.global.error.GlobalExceptionHandler;
 import com.jjinbbang.server.global.paging.PageInfo;
@@ -146,6 +148,60 @@ class ReviewControllerTest {
 		// then
 		then(reviewService).should().findAll(
 			isNull(), isNull(), eq(ReviewPeriodType.LAST_7_DAYS), eq(ReviewStatus.PUBLIC), eq(true), any(Pageable.class)
+		);
+	}
+
+	@Test
+	@DisplayName("상세 조회는 리뷰 상세 필드를 그대로 응답한다")
+	void 상세_응답_형태() throws Exception {
+		// given
+		given(reviewService.findById(1L)).willReturn(detailResponse());
+
+		// when & then
+		mockMvc.perform(get("/api/admin/reviews/{reviewId}", 1L))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(200))
+			.andExpect(jsonPath("$.message").value("리뷰 상세 조회 성공"))
+			.andExpect(jsonPath("$.data.reviewId").value(1))
+			.andExpect(jsonPath("$.data.schoolName").value("찐빵대학교"))
+			.andExpect(jsonPath("$.data.hasBadWordFlag").value(true))
+			.andExpect(jsonPath("$.data.email").value("kim***@pusan.ac.kr"))
+			.andExpect(jsonPath("$.data.title").doesNotExist())
+			.andExpect(jsonPath("$.data.reportList[0].reportReason").value("욕설·비방"))
+			.andExpect(jsonPath("$.data.reportList[0].reporterId").value(5))
+			.andExpect(jsonPath("$.data.historyList[0].actionName").value("신고 기각"))
+			.andExpect(jsonPath("$.data.historyList[0].handler").value("ddochi"));
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 리뷰를 상세 조회하면 404 REVIEW_NOT_FOUND")
+	void 존재하지_않는_리뷰_상세는_404() throws Exception {
+		// given
+		given(reviewService.findById(999L)).willThrow(ReviewErrorCode.REVIEW_NOT_FOUND.exception());
+
+		// when & then
+		mockMvc.perform(get("/api/admin/reviews/{reviewId}", 999L))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_FOUND"))
+			.andExpect(jsonPath("$.message").value("해당 리뷰 정보가 존재하지 않습니다."));
+	}
+
+	@Test
+	@DisplayName("reviewId 가 숫자가 아니면 400 INVALID_TYPE")
+	void 숫자가_아닌_reviewId는_400() throws Exception {
+		mockMvc.perform(get("/api/admin/reviews/{reviewId}", "abc"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errorCode").value("INVALID_TYPE"));
+	}
+
+	private ReviewDetailResponse detailResponse() {
+		return new ReviewDetailResponse(
+			1L, ReviewStatus.PUBLIC, "찐빵대학교", true, 1,
+			LocalDateTime.of(2026, 6, 2, 0, 0), 1L, "계약 연장 문의 응대 관련 후기",
+			List.of("https://img/1", "https://img/2"),
+			5L, "장전동거주자", "kim***@pusan.ac.kr",
+			List.of(new ReviewDetailResponse.ReportItem("욕설·비방", 5L, LocalDateTime.of(2026, 6, 2, 14, 30))),
+			List.of(new ReviewDetailResponse.HistoryItem("신고 기각", LocalDateTime.of(2026, 6, 2, 14, 2), "ddochi", "근거 부족"))
 		);
 	}
 
