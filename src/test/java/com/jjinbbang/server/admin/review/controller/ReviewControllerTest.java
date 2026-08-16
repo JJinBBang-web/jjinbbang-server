@@ -4,8 +4,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -192,6 +195,43 @@ class ReviewControllerTest {
 		mockMvc.perform(get("/api/admin/reviews/{reviewId}", "abc"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.errorCode").value("INVALID_TYPE"));
+	}
+
+	@Test
+	@DisplayName("삭제는 data 없이 성공 메시지만 응답한다")
+	void 삭제_응답_형태() throws Exception {
+		// when & then
+		mockMvc.perform(delete("/api/admin/reviews/{reviewId}", 1L))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(200))
+			.andExpect(jsonPath("$.message").value("리뷰 삭제 성공"))
+			.andExpect(jsonPath("$.data").value(nullValue()));
+
+		then(reviewService).should().delete(1L);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 리뷰를 삭제하면 404 REVIEW_NOT_FOUND")
+	void 존재하지_않는_리뷰_삭제는_404() throws Exception {
+		// given
+		willThrow(ReviewErrorCode.REVIEW_NOT_FOUND.exception()).given(reviewService).delete(999L);
+
+		// when & then
+		mockMvc.perform(delete("/api/admin/reviews/{reviewId}", 999L))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_FOUND"));
+	}
+
+	@Test
+	@DisplayName("이미 삭제된 리뷰를 다시 삭제하면 409 REVIEW_ALREADY_DELETED")
+	void 이미_삭제된_리뷰_삭제는_409() throws Exception {
+		// given
+		willThrow(ReviewErrorCode.REVIEW_ALREADY_DELETED.exception()).given(reviewService).delete(1L);
+
+		// when & then
+		mockMvc.perform(delete("/api/admin/reviews/{reviewId}", 1L))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.errorCode").value("REVIEW_ALREADY_DELETED"));
 	}
 
 	private ReviewDetailResponse detailResponse() {

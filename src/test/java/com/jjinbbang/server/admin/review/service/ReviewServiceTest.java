@@ -213,6 +213,51 @@ class ReviewServiceTest {
 		assertThat(response.email()).isNull();
 	}
 
+	@Test
+	@DisplayName("존재하지 않는 리뷰를 삭제하면 404를 던진다")
+	void 존재하지_않는_리뷰_삭제는_404() {
+		// given
+		given(reviewRepository.findById(999L)).willReturn(Optional.empty());
+
+		// when & then
+		assertThatThrownBy(() -> reviewService.delete(999L))
+			.isInstanceOf(BusinessException.class)
+			.extracting(exception -> ((BusinessException) exception).getErrorCode())
+			.isEqualTo(ReviewErrorCode.REVIEW_NOT_FOUND);
+	}
+
+	@Test
+	@DisplayName("이미 삭제된 리뷰를 다시 삭제하면 409를 던지고 삭제 시각이 덮어써지지 않는다")
+	void 이미_삭제된_리뷰_삭제는_409() {
+		// given
+		Review review = review(1L, "내용");
+		LocalDateTime deletedAt = LocalDateTime.of(2026, 8, 1, 9, 0);
+		ReflectionTestUtils.setField(review, "deletedAt", deletedAt);
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+
+		// when & then
+		assertThatThrownBy(() -> reviewService.delete(1L))
+			.isInstanceOf(BusinessException.class)
+			.extracting(exception -> ((BusinessException) exception).getErrorCode())
+			.isEqualTo(ReviewErrorCode.REVIEW_ALREADY_DELETED);
+
+		assertThat(review.getDeletedAt()).isEqualTo(deletedAt);
+	}
+
+	@Test
+	@DisplayName("리뷰를 삭제하면 소프트 삭제된다")
+	void 리뷰를_삭제하면_소프트_삭제된다() {
+		// given
+		Review review = review(1L, "내용");
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+
+		// when
+		reviewService.delete(1L);
+
+		// then
+		assertThat(review.isDeleted()).isTrue();
+	}
+
 	private ReviewImage reviewImage(Review review, String url) {
 		ReviewImage image = BeanUtils.instantiateClass(ReviewImage.class);
 		ReflectionTestUtils.setField(image, "review", review);
