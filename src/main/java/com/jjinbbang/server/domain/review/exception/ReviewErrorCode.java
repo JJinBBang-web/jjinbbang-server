@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 public enum ReviewErrorCode implements ErrorCode {
 
 	REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 리뷰 정보가 존재하지 않습니다."),
+	REVIEW_ALREADY_DELETED(HttpStatus.CONFLICT, "이미 삭제된 리뷰입니다."),
 	;
 
 	private final HttpStatus status;

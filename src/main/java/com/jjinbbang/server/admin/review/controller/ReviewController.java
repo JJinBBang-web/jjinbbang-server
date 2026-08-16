@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -60,5 +61,11 @@ public class ReviewController {
 	@GetMapping("/{reviewId}")
 	public ResTemplate<ReviewDetailResponse> findById(@PathVariable("reviewId") Long reviewId) {
 		return new ResTemplate<>(HttpStatus.OK, "리뷰 상세 조회 성공", reviewService.findById(reviewId));
+	}
+
+	@DeleteMapping("/{reviewId}")
+	public ResTemplate<Void> delete(@PathVariable("reviewId") Long reviewId) {
+		reviewService.delete(reviewId);
+		return new ResTemplate<>(HttpStatus.OK, "리뷰 삭제 성공");
 	}
 }

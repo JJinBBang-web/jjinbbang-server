@@ -88,4 +88,16 @@ public class ReviewService {
 
 		return ReviewDetailResponse.of(review, hasBadWordFlag, images, reports, actionHistories);
 	}
+
+	@Transactional
+	public void delete(Long reviewId) {
+		Review review = reviewRepository.findById(reviewId)
+			.orElseThrow(ReviewErrorCode.REVIEW_NOT_FOUND::exception);
+
+		if (review.isDeleted()) {
+			throw ReviewErrorCode.REVIEW_ALREADY_DELETED.exception();
+		}
+
+		review.delete();
+	}
 }
