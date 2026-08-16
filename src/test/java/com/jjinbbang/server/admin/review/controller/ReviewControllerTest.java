@@ -10,6 +10,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,6 +25,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -232,6 +234,56 @@ class ReviewControllerTest {
 		mockMvc.perform(delete("/api/admin/reviews/{reviewId}", 1L))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.errorCode").value("REVIEW_ALREADY_DELETED"));
+	}
+
+	@Test
+	@DisplayName("상태를 변경하면 200 이고 data 는 비어 있다")
+	void 상태_변경은_200() throws Exception {
+		// when & then
+		mockMvc.perform(patch("/api/admin/reviews/{reviewId}/status", 1L)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"PRIVATE\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("리뷰 상태 변경 성공"))
+			.andExpect(jsonPath("$.data").value(nullValue()));
+
+		then(reviewService).should().updateStatus(1L, ReviewStatus.PRIVATE);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 리뷰는 상태를 변경하면 404 REVIEW_NOT_FOUND")
+	void 존재하지_않는_리뷰_상태_변경은_404() throws Exception {
+		// given
+		willThrow(ReviewErrorCode.REVIEW_NOT_FOUND.exception())
+			.given(reviewService).updateStatus(999L, ReviewStatus.PRIVATE);
+
+		// when & then
+		mockMvc.perform(patch("/api/admin/reviews/{reviewId}/status", 999L)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"PRIVATE\"}"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_FOUND"));
+	}
+
+	@Test
+	@DisplayName("status 를 빼면 400 이다 — 빠진 값이 조용히 특정 상태로 정해지지 않는다")
+	void status_누락은_400() throws Exception {
+		mockMvc.perform(patch("/api/admin/reviews/{reviewId}/status", 1L)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errorCode").value("INVALID_INPUT"))
+			.andExpect(jsonPath("$.errors[0].field").value("status"));
+	}
+
+	@Test
+	@DisplayName("status 가 PUBLIC/PRIVATE 밖의 값이면 400 이다")
+	void status가_enum_밖의_값이면_400() throws Exception {
+		mockMvc.perform(patch("/api/admin/reviews/{reviewId}/status", 1L)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"BANANA\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errorCode").value("INVALID_INPUT"));
 	}
 
 	private ReviewDetailResponse detailResponse() {

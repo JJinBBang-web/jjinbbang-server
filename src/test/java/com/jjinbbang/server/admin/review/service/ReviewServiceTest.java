@@ -258,6 +258,33 @@ class ReviewServiceTest {
 		assertThat(review.isDeleted()).isTrue();
 	}
 
+	@Test
+	@DisplayName("존재하지 않는 리뷰는 상태를 변경하면 404를 던진다")
+	void 존재하지_않는_리뷰_상태_변경은_404() {
+		// given
+		given(reviewRepository.findById(999L)).willReturn(Optional.empty());
+
+		// when & then
+		assertThatThrownBy(() -> reviewService.updateStatus(999L, ReviewStatus.PRIVATE))
+			.isInstanceOf(BusinessException.class)
+			.extracting(exception -> ((BusinessException) exception).getErrorCode())
+			.isEqualTo(ReviewErrorCode.REVIEW_NOT_FOUND);
+	}
+
+	@Test
+	@DisplayName("리뷰 상태를 변경한다")
+	void 리뷰_상태를_변경한다() {
+		// given
+		Review review = review(1L, "내용");
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+
+		// when
+		reviewService.updateStatus(1L, ReviewStatus.PRIVATE);
+
+		// then
+		assertThat(review.getStatus()).isEqualTo(ReviewStatus.PRIVATE);
+	}
+
 	private ReviewImage reviewImage(Review review, String url) {
 		ReviewImage image = BeanUtils.instantiateClass(ReviewImage.class);
 		ReflectionTestUtils.setField(image, "review", review);
