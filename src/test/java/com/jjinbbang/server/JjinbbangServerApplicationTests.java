@@ -5,7 +5,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
+import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
 
@@ -20,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -46,6 +52,8 @@ import jakarta.persistence.EntityManagerFactory;
 @Testcontainers
 @DisplayName("애플리케이션 컨텍스트")
 class JjinbbangServerApplicationTests {
+
+	private static final Pattern HANGUL_WORD_PATTERN = Pattern.compile("^[가-힣ㄱ-ㅎㅏ-ㅣᄀ-ᇿ]+$");
 
 	private static final Set<String> EXPECTED_TABLES = Set.of(
 		"action_history",
@@ -120,6 +128,61 @@ class JjinbbangServerApplicationTests {
 		mockMvc.perform(get("/api/admin/auth/me"))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.errorCode").value("AUTHENTICATION_REQUIRED"));
+	}
+
+	@Test
+	@DisplayName("Flyway가 한글 금칙어 초기 데이터 500건을 활성 상태로 적재한다")
+	void flywaySeedsFiveHundredEnabledKoreanProhibitedWords() {
+		JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+
+		List<String> words = jdbcTemplate.queryForList(
+			"SELECT word FROM prohibited_words WHERE deleted_at IS NULL",
+			String.class
+		);
+		Integer invalidDefaultCount = jdbcTemplate.queryForObject("""
+			SELECT COUNT(*)
+			FROM prohibited_words
+			WHERE admin_id IS NOT NULL
+			   OR is_enabled <> b'1'
+			   OR deleted_at IS NOT NULL
+			""", Integer.class);
+
+		assertThat(words)
+			.hasSize(500)
+			.doesNotHaveDuplicates()
+			.doesNotContain(
+				"낡다", "시끄럽다", "더럽다", "곰팡이", "냄새",
+				"벌레", "주차", "층간소음", "사기", "쓰레기"
+			)
+			.allMatch(word -> !word.isBlank())
+			.allMatch(word -> word.length() <= 255)
+			.allMatch(word -> HANGUL_WORD_PATTERN.matcher(word).matches());
+		assertThat(words.stream().map(JjinbbangServerApplicationTests::normalizeProhibitedWord).toList())
+			.doesNotHaveDuplicates()
+			.allMatch(word -> !word.isBlank());
+		assertThat(invalidDefaultCount).isZero();
+	}
+
+	@Test
+	@DisplayName("금칙어 초기 데이터 SQL을 다시 실행해도 같은 텍스트를 중복 적재하지 않는다")
+	void prohibitedWordSeedMigrationSkipsExistingWords() throws Exception {
+		JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+		String migrationSql = new ClassPathResource("db/migration/V4__seed_prohibited_words.sql")
+			.getContentAsString(StandardCharsets.UTF_8);
+
+		jdbcTemplate.execute(migrationSql);
+
+		Integer totalCount = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM prohibited_words",
+			Integer.class
+		);
+		Integer distinctWordCount = jdbcTemplate.queryForObject(
+			"SELECT COUNT(DISTINCT word) FROM prohibited_words",
+			Integer.class
+		);
+
+		assertThat(totalCount).isEqualTo(500);
+		assertThat(distinctWordCount).isEqualTo(500);
 	}
 
 	@Test
@@ -239,5 +302,14 @@ class JjinbbangServerApplicationTests {
 			reviewId
 		);
 		assertThat(storedContractType).isEqualTo("전세");
+	}
+
+	private static String normalizeProhibitedWord(String word) {
+		String normalized = Normalizer.normalize(word, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+		StringBuilder result = new StringBuilder(normalized.length());
+		normalized.codePoints()
+			.filter(Character::isLetterOrDigit)
+			.forEach(result::appendCodePoint);
+		return result.toString();
 	}
 }
