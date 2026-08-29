@@ -44,6 +44,10 @@ Testcontainers가 임시 MySQL을 생성하고, 홈랩에서는 배포된 MySQL�
   다시 확인한다. 계정 비활성화는 즉시 세션을 폐기하고, Authentik 그룹 권한
   회수는 현재 ID Token 만료 시점에 강제 재로그인되어 반영된다.
 
+관리자 API 배포는 브랜치별 환경을 사용한다. `develop` push는 `dev` 이미지와
+GitOps dispatch를 생성하고, `main` push는 `prod` 이미지와 dispatch를 생성한다.
+두 환경은 Authentik client/redirect URI, Secret, DB/schema를 분리해야 한다.
+
 운영 환경에는 다음 값을 Secret과 ConfigMap으로 주입한다.
 
 ```text

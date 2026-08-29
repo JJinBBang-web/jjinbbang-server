@@ -26,7 +26,7 @@ jobs:
       - run: ./gradlew clean test build --no-daemon
 
   image:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     needs: test
     runs-on: ubuntu-latest
     permissions:
@@ -52,7 +52,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   dispatch:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     needs: image
     runs-on: ubuntu-latest
     steps:
@@ -68,12 +68,16 @@ jobs:
           IMAGE: ghcr.io/jjinbbang-web/jjinbbang-server
           TAG: ${{ github.sha }}
           IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+          DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+          SOURCE_REF: ${{ github.ref_name }}
         run: |
           gh api --method POST repos/JJinBBang-web/jjinbbang-lab/dispatches \
             -f event_type=admin-image-built \
             -f client_payload[component]=server \
+            -f client_payload[environment]="$DEPLOY_ENVIRONMENT" \
             -f client_payload[image]="$IMAGE" \
             -f client_payload[tag]="$TAG" \
             -f client_payload[source_repository]="${{ github.repository }}" \
+            -f client_payload[source_ref]="$SOURCE_REF" \
             -f client_payload[source_sha]="$TAG" \
             -f client_payload[image_digest]="$IMAGE_DIGEST"
