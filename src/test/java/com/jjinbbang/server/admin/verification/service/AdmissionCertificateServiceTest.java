@@ -74,7 +74,13 @@ class AdmissionCertificateServiceTest {
 			.thenReturn(Set.of(3001L));
 
 		AdmissionCertificateListResponse response = admissionCertificateService
-			.getAdmissionCertificateList(AdmissionCertificateStatus.PENDING, 0, 10);
+			.getAdmissionCertificateList(
+				AdmissionCertificateStatus.PENDING,
+				PageRequest.of(0, 10, Sort.by(
+					Sort.Order.desc("createdAt"),
+					Sort.Order.desc("id")
+				))
+			);
 
 		assertThat(response.certificateList()).singleElement().satisfies(summary -> {
 			assertThat(summary.certificateId()).isEqualTo(3001L);
@@ -110,7 +116,7 @@ class AdmissionCertificateServiceTest {
 		)).thenReturn(emptyPage);
 
 		AdmissionCertificateListResponse response = admissionCertificateService
-			.getAdmissionCertificateList(AdmissionCertificateStatus.REJECT, 2, 10);
+			.getAdmissionCertificateList(AdmissionCertificateStatus.REJECT, PageRequest.of(2, 10));
 
 		assertThat(response.certificateList()).isEmpty();
 		assertThat(response.pageInfo().currentPage()).isEqualTo(2);

@@ -20,7 +20,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,17 +35,10 @@ public class AdmissionCertificateService {
 
 	public AdmissionCertificateListResponse getAdmissionCertificateList(
 		AdmissionCertificateStatus status,
-		int page,
-		int size
+		Pageable pageable
 	) {
-		// 정렬 기준: 신청 시각, ID
-		PageRequest pageRequest = PageRequest.of(
-			page,
-			size,
-			Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))
-		);
 		Page<AdmissionCertificate> certificates = admissionCertificateRepository
-			.findAllByStatus(status, pageRequest);
+			.findAllByStatus(status, pageable);
 
 		// 현재 페이지의 증명서만 한 번에 확인해 항목별 추가 쿼리(N+1)를 피한다.
 		List<Long> certificateIds = certificates.getContent().stream()

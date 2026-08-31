@@ -1,5 +1,8 @@
 package com.jjinbbang.server.admin.verification.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -17,10 +20,13 @@ import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificate
 import com.jjinbbang.server.admin.verification.service.AdmissionCertificateService;
 import com.jjinbbang.server.admin.verification.type.AdmissionCertificateStatus;
 import com.jjinbbang.server.global.error.GlobalExceptionHandler;
+import com.jjinbbang.server.global.paging.PageRequests;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -54,9 +60,8 @@ class AdmissionCertificateControllerTest {
 			new PageInfo(0, 10, 1, 1, true, true)
 		);
 		when(admissionCertificateService.getAdmissionCertificateList(
-			AdmissionCertificateStatus.PENDING,
-			0,
-			10
+			eq(AdmissionCertificateStatus.PENDING),
+			any(Pageable.class)
 		)).thenReturn(response);
 
 		mockMvc.perform(get("/api/admin/certificates/admission")
@@ -79,11 +84,18 @@ class AdmissionCertificateControllerTest {
 			.andExpect(jsonPath("$.data.pageInfo.isFirst").value(true))
 			.andExpect(jsonPath("$.data.pageInfo.isLast").value(true));
 
+		ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 		verify(admissionCertificateService).getAdmissionCertificateList(
-			AdmissionCertificateStatus.PENDING,
-			0,
-			10
+			eq(AdmissionCertificateStatus.PENDING),
+			pageableCaptor.capture()
 		);
+		Pageable pageable = pageableCaptor.getValue();
+		assertThat(pageable.getPageNumber()).isZero();
+		assertThat(pageable.getPageSize()).isEqualTo(10);
+		assertThat(pageable.getSort().getOrderFor("createdAt").isDescending())
+			.isTrue();
+		assertThat(pageable.getSort().getOrderFor("id").isDescending())
+			.isTrue();
 	}
 
 	@Test
@@ -91,12 +103,11 @@ class AdmissionCertificateControllerTest {
 	void defaultPagination() throws Exception {
 		AdmissionCertificateListResponse response = new AdmissionCertificateListResponse(
 			List.of(),
-			new PageInfo(0, 10, 0, 0, true, true)
+			new PageInfo(0, PageRequests.DEFAULT_SIZE, 0, 0, true, true)
 		);
 		when(admissionCertificateService.getAdmissionCertificateList(
-			AdmissionCertificateStatus.APPROVE,
-			0,
-			10
+			eq(AdmissionCertificateStatus.APPROVE),
+			any(Pageable.class)
 		)).thenReturn(response);
 
 		mockMvc.perform(get("/api/admin/certificates/admission")
@@ -104,11 +115,13 @@ class AdmissionCertificateControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.certificateList").isEmpty());
 
+		ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 		verify(admissionCertificateService).getAdmissionCertificateList(
-			AdmissionCertificateStatus.APPROVE,
-			0,
-			10
+			eq(AdmissionCertificateStatus.APPROVE),
+			pageableCaptor.capture()
 		);
+		assertThat(pageableCaptor.getValue().getPageSize())
+			.isEqualTo(PageRequests.DEFAULT_SIZE);
 	}
 
 	@Test
@@ -120,13 +133,30 @@ class AdmissionCertificateControllerTest {
 	}
 
 	@Test
-	@DisplayName("page가 음수이면 400 INVALID_INPUT을 반환한다")
-	void pageMustNotBeNegative() throws Exception {
+	@DisplayName("음수 page와 상한을 넘는 size를 안전한 범위로 정규화한다")
+	void normalizePagination() throws Exception {
+		when(admissionCertificateService.getAdmissionCertificateList(
+			eq(AdmissionCertificateStatus.PENDING),
+			any(Pageable.class)
+		)).thenReturn(new AdmissionCertificateListResponse(
+			List.of(),
+			new PageInfo(0, PageRequests.MAX_SIZE, 0, 0, true, true)
+		));
+
 		mockMvc.perform(get("/api/admin/certificates/admission")
 				.queryParam("status", "PENDING")
-				.queryParam("page", "-1"))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.errorCode").value("INVALID_INPUT"));
+				.queryParam("page", "-1")
+				.queryParam("size", "1000000"))
+			.andExpect(status().isOk());
+
+		ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+		verify(admissionCertificateService).getAdmissionCertificateList(
+			eq(AdmissionCertificateStatus.PENDING),
+			pageableCaptor.capture()
+		);
+		assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+		assertThat(pageableCaptor.getValue().getPageSize())
+			.isEqualTo(PageRequests.MAX_SIZE);
 	}
 
 	@Test

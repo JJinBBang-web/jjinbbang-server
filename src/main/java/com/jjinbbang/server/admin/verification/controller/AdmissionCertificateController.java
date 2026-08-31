@@ -6,22 +6,28 @@ import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificate
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateResponse;
 import com.jjinbbang.server.admin.verification.service.AdmissionCertificateService;
 import com.jjinbbang.server.admin.verification.type.AdmissionCertificateStatus;
+import com.jjinbbang.server.global.paging.PageRequests;
 import com.jjinbbang.server.global.template.ResTemplate;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/certificates/admission")
 public class AdmissionCertificateController {
+
+	private static final Sort LATEST_FIRST = Sort.by(
+		Sort.Order.desc("createdAt"),
+		Sort.Order.desc("id")
+	);
 
 	private final AdmissionCertificateService admissionCertificateService;
 
@@ -31,11 +37,11 @@ public class AdmissionCertificateController {
 	@GetMapping
 	public ResTemplate<AdmissionCertificateListResponse> getAdmissionCertificateList(
 		@RequestParam(name = "status") AdmissionCertificateStatus status,
-		@RequestParam(name = "page", defaultValue = "0") @Min(0) int page,
-		@RequestParam(name = "size", defaultValue = "10") @Min(1) int size
+		@RequestParam(name = "page", defaultValue = "0") int page,
+		@RequestParam(name = "size", defaultValue = PageRequests.DEFAULT_SIZE_PARAM) int size
 	) {
 		AdmissionCertificateListResponse response = admissionCertificateService
-			.getAdmissionCertificateList(status, page, size);
+			.getAdmissionCertificateList(status, PageRequests.of(page, size, LATEST_FIRST));
 
 		return new ResTemplate<>(HttpStatus.OK, "증명서 목록 조회 성공", response);
 	}
