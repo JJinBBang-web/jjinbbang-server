@@ -26,7 +26,7 @@ jobs:
       - run: ./gradlew clean test build --no-daemon
 
   image:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     needs: test
     runs-on: ubuntu-latest
     permissions:
@@ -46,34 +46,80 @@ jobs:
         id: build
         with:
           context: .
+          platforms: linux/arm64
           push: true
           tags: ghcr.io/jjinbbang-web/jjinbbang-server:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Verify published image
+        env:
+          IMAGE: ghcr.io/jjinbbang-web/jjinbbang-server
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Invalid Buildx digest: $IMAGE_DIGEST" >&2
+            exit 1
+          fi
+
+          inspection="$(docker buildx imagetools inspect "$IMAGE@$IMAGE_DIGEST" --raw)"
+          printf '%s\n' "$inspection"
+          if ! jq -e '.manifests[]? | select(.platform.os == "linux" and .platform.architecture == "arm64")' <<<"$inspection" >/dev/null; then
+            echo "Published image does not contain linux/arm64" >&2
+            exit 1
+          fi
 
   dispatch:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: image
     runs-on: ubuntu-latest
+    env:
+      GITOPS_APP_ID: ${{ secrets.GITOPS_APP_ID }}
+      GITOPS_APP_PRIVATE_KEY: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
     steps:
+      - name: Check GitOps credentials
+        id: gitops
+        run: |
+          if [[ -n "$GITOPS_APP_ID" && -n "$GITOPS_APP_PRIVATE_KEY" ]]; then
+            echo "available=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "available=false" >>"$GITHUB_OUTPUT"
+            echo "::notice::GitOps dispatch skipped because GitHub App credentials are not configured"
+          fi
       - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        if: steps.gitops.outputs.available == 'true'
         id: app-token
         with:
-          app-id: ${{ secrets.GITOPS_APP_ID }}
-          private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
+          app-id: ${{ env.GITOPS_APP_ID }}
+          private-key: ${{ env.GITOPS_APP_PRIVATE_KEY }}
           owner: JJinBBang-web
           repositories: jjinbbang-lab
-      - env:
+      - name: Dispatch production image
+        if: steps.gitops.outputs.available == 'true'
+        env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           IMAGE: ghcr.io/jjinbbang-web/jjinbbang-server
           TAG: ${{ github.sha }}
           IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+          DEPLOY_ENVIRONMENT: prod
+          SOURCE_REF: ${{ github.ref_name }}
         run: |
-          gh api --method POST repos/JJinBBang-web/jjinbbang-lab/dispatches \
-            -f event_type=admin-image-built \
-            -f client_payload[component]=server \
-            -f client_payload[image]="$IMAGE" \
-            -f client_payload[tag]="$TAG" \
-            -f client_payload[source_repository]="${{ github.repository }}" \
-            -f client_payload[source_sha]="$TAG" \
-            -f client_payload[image_digest]="$IMAGE_DIGEST"
+          for attempt in 1 2 3; do
+            if gh api --method POST repos/JJinBBang-web/jjinbbang-lab/dispatches \
+              -f event_type=admin-image-built \
+              -f client_payload[component]=server \
+              -f client_payload[environment]="$DEPLOY_ENVIRONMENT" \
+              -f client_payload[image]="$IMAGE" \
+              -f client_payload[tag]="$TAG" \
+              -f client_payload[source_repository]="${{ github.repository }}" \
+              -f client_payload[source_ref]="$SOURCE_REF" \
+              -f client_payload[source_sha]="$TAG" \
+              -f client_payload[image_digest]="$IMAGE_DIGEST"; then
+              exit 0
+            fi
+
+            if [[ "$attempt" == 3 ]]; then
+              echo "GitOps dispatch failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
