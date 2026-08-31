@@ -11,5 +11,7 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
 
 	Optional<Admin> findByOidcIssuerAndOidcSubject(String oidcIssuer, String oidcSubject);
 
+	Optional<Admin> findByIdAndStatus(Long id, AdminStatus status);
+
 	boolean existsByIdAndStatus(Long id, AdminStatus status);
 }

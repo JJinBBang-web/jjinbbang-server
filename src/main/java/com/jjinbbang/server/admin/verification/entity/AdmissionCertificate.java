@@ -49,14 +49,16 @@ public class AdmissionCertificate extends CreatedAtEntity {
 	@Column(name = "reject_reason", length = 255)
 	private String rejectReason;
 
-	public void approve() {
+	public void approve(Admin admin) {
 		validatePending();
+		this.admin = admin;
 		status = AdmissionCertificateStatus.APPROVE;
 		rejectReason = null;
 	}
 
-	public void reject(String rejectReason) {
+	public void reject(Admin admin, String rejectReason) {
 		validatePending();
+		this.admin = admin;
 		status = AdmissionCertificateStatus.REJECT;
 		this.rejectReason = rejectReason;
 	}

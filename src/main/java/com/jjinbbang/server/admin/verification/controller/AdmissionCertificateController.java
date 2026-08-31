@@ -1,5 +1,6 @@
 package com.jjinbbang.server.admin.verification.controller;
 
+import com.jjinbbang.server.admin.administrator.security.AdminOidcUser;
 import com.jjinbbang.server.admin.verification.dto.request.AdmissionCertificateRejectRequest;
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateListResponse;
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateResponse;
@@ -10,6 +11,7 @@ import com.jjinbbang.server.global.template.ResTemplate;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -57,9 +59,10 @@ public class AdmissionCertificateController {
 	 */
 	@PatchMapping("/{certificateId}/approve")
 	public ResTemplate<Void> approveAdmissionCertificateStatus(
+		@AuthenticationPrincipal AdminOidcUser principal,
 		@PathVariable("certificateId") @Positive Long certificateId
 	) {
-		admissionCertificateService.approveAdmissionCertificate(certificateId);
+		admissionCertificateService.approveAdmissionCertificate(certificateId, principal.getAdminId());
 
 		return new ResTemplate<>(HttpStatus.OK, "증명서 승인 성공");
 	}
@@ -70,10 +73,15 @@ public class AdmissionCertificateController {
 	 */
 	@PatchMapping("/{certificateId}/reject")
 	public ResTemplate<Void> rejectAdmissionCertificateStatus(
+		@AuthenticationPrincipal AdminOidcUser principal,
 		@PathVariable("certificateId") @Positive Long certificateId,
 		@Valid @RequestBody AdmissionCertificateRejectRequest request
 	) {
-		admissionCertificateService.rejectAdmissionCertificate(certificateId, request.rejectReason());
+		admissionCertificateService.rejectAdmissionCertificate(
+			certificateId,
+			principal.getAdminId(),
+			request.rejectReason()
+		);
 
 		return new ResTemplate<>(HttpStatus.OK, "증명서 반려 성공");
 	}

@@ -3,12 +3,18 @@ package com.jjinbbang.server.admin.verification.service;
 import java.util.List;
 import java.util.Set;
 
+import com.jjinbbang.server.admin.administrator.entity.Admin;
+import com.jjinbbang.server.admin.administrator.exception.AdminAuthenticationErrorCode;
+import com.jjinbbang.server.admin.administrator.repository.AdminRepository;
+import com.jjinbbang.server.admin.administrator.type.AdminStatus;
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateListResponse;
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateResponse;
 import com.jjinbbang.server.admin.verification.entity.AdmissionCertificate;
 import com.jjinbbang.server.admin.verification.exception.AdmissionCertificateErrorCode;
 import com.jjinbbang.server.admin.verification.repository.AdmissionCertificateRepository;
 import com.jjinbbang.server.admin.verification.type.AdmissionCertificateStatus;
+import com.jjinbbang.server.domain.user.entity.User;
+import com.jjinbbang.server.domain.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdmissionCertificateService {
 
 	private final AdmissionCertificateRepository admissionCertificateRepository;
+	private final UserRepository userRepository;
+	private final AdminRepository adminRepository;
 
 	public AdmissionCertificateListResponse getAdmissionCertificateList(
 		AdmissionCertificateStatus status,
@@ -67,25 +75,51 @@ public class AdmissionCertificateService {
 	}
 
 	@Transactional
-	public void approveAdmissionCertificate(Long certificateId) {
-		// 동시에 같은 증명서를 처리하지 못하도록 쓰기 잠금과 함께 조회한다.
-		AdmissionCertificate certificate = admissionCertificateRepository.findByIdForUpdate(certificateId)
-			.orElseThrow(AdmissionCertificateErrorCode.ADMISSION_CERTIFICATE_NOT_FOUND::exception);
+	public void approveAdmissionCertificate(Long certificateId, Long adminId) {
+		ProcessingContext context = prepareProcessing(certificateId, adminId);
+		AdmissionCertificate certificate = context.certificate();
 
-		certificate.approve();
-		certificate.getUser().approveAdmissionCertificate(
+		certificate.approve(context.admin());
+		context.user().approveAdmissionCertificate(
 			certificate.getUrl(),
 			certificate.getCreatedAt()
 		);
 	}
 
 	@Transactional
-	public void rejectAdmissionCertificate(Long certificateId, String rejectReason) {
-		// 승인과 마찬가지로 동일 증명서의 중복 처리를 쓰기 잠금으로 막는다.
+	public void rejectAdmissionCertificate(Long certificateId, Long adminId, String rejectReason) {
+		ProcessingContext context = prepareProcessing(certificateId, adminId);
+
+		context.certificate().reject(context.admin(), rejectReason.strip());
+		context.user().rejectAdmissionCertificate();
+	}
+
+	/** 사용자 단위로 처리 순서를 직렬화하고 최신 제출인지 확인한다. */
+	private ProcessingContext prepareProcessing(Long certificateId, Long adminId) {
+		Long userId = admissionCertificateRepository.findUserIdByCertificateId(certificateId)
+			.orElseThrow(AdmissionCertificateErrorCode.ADMISSION_CERTIFICATE_NOT_FOUND::exception);
+		User user = userRepository.findByIdForUpdate(userId)
+			.orElseThrow(AdmissionCertificateErrorCode.ADMISSION_CERTIFICATE_NOT_FOUND::exception);
 		AdmissionCertificate certificate = admissionCertificateRepository.findByIdForUpdate(certificateId)
 			.orElseThrow(AdmissionCertificateErrorCode.ADMISSION_CERTIFICATE_NOT_FOUND::exception);
 
-		certificate.reject(rejectReason.strip());
-		certificate.getUser().rejectAdmissionCertificate();
+		if (admissionCertificateRepository.existsNewerSubmission(
+			userId,
+			certificate.getCreatedAt(),
+			certificate.getId()
+		)) {
+			throw AdmissionCertificateErrorCode.ADMISSION_CERTIFICATE_SUPERSEDED.exception();
+		}
+
+		Admin admin = adminRepository.findByIdAndStatus(adminId, AdminStatus.ACTIVE)
+			.orElseThrow(AdminAuthenticationErrorCode.AUTHENTICATION_REQUIRED::exception);
+		return new ProcessingContext(certificate, user, admin);
+	}
+
+	private record ProcessingContext(
+		AdmissionCertificate certificate,
+		User user,
+		Admin admin
+	) {
 	}
 }

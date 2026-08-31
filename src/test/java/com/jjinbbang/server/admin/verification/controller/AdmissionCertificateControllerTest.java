@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.jjinbbang.server.admin.administrator.security.AdminOidcUser;
+import com.jjinbbang.server.admin.verification.dto.request.AdmissionCertificateRejectRequest;
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateListResponse;
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateListResponse.CertificateSummary;
 import com.jjinbbang.server.admin.verification.dto.response.AdmissionCertificateListResponse.PageInfo;
@@ -26,12 +28,13 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 class AdmissionCertificateControllerTest {
 
 	AdmissionCertificateService admissionCertificateService;
+	AdmissionCertificateController controller;
 	MockMvc mockMvc;
 
 	@BeforeEach
 	void setUp() {
 		admissionCertificateService = org.mockito.Mockito.mock(AdmissionCertificateService.class);
-		AdmissionCertificateController controller = new AdmissionCertificateController(admissionCertificateService);
+		controller = new AdmissionCertificateController(admissionCertificateService);
 		mockMvc = MockMvcBuilders.standaloneSetup(controller)
 			.setControllerAdvice(new GlobalExceptionHandler())
 			.build();
@@ -124,5 +127,33 @@ class AdmissionCertificateControllerTest {
 				.queryParam("page", "-1"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.errorCode").value("INVALID_INPUT"));
+	}
+
+	@Test
+	@DisplayName("승인한 관리자 ID를 서비스에 전달한다")
+	void approvePassesAdminId() {
+		AdminOidcUser principal = org.mockito.Mockito.mock(AdminOidcUser.class);
+		when(principal.getAdminId()).thenReturn(7L);
+
+		controller.approveAdmissionCertificateStatus(principal, 3001L);
+
+		verify(admissionCertificateService).approveAdmissionCertificate(3001L, 7L);
+	}
+
+	@Test
+	@DisplayName("반려한 관리자 ID와 사유를 서비스에 전달한다")
+	void rejectPassesAdminIdAndReason() {
+		AdminOidcUser principal = org.mockito.Mockito.mock(AdminOidcUser.class);
+		when(principal.getAdminId()).thenReturn(7L);
+		AdmissionCertificateRejectRequest request =
+			new AdmissionCertificateRejectRequest("식별 정보가 선명하지 않습니다.");
+
+		controller.rejectAdmissionCertificateStatus(principal, 3001L, request);
+
+		verify(admissionCertificateService).rejectAdmissionCertificate(
+			3001L,
+			7L,
+			"식별 정보가 선명하지 않습니다."
+		);
 	}
 }

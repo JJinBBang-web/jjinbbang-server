@@ -21,6 +21,9 @@ import jakarta.persistence.LockModeType;
 
 public interface AdmissionCertificateRepository extends JpaRepository<AdmissionCertificate, Long> {
 
+	@Query("SELECT certificate.user.id FROM AdmissionCertificate certificate WHERE certificate.id = :certificateId")
+	Optional<Long> findUserIdByCertificateId(@Param("certificateId") Long certificateId);
+
 	// 합격증명서와 사용자, 학교를 한 쿼리에서 조회
 	@EntityGraph(attributePaths = {"user", "user.university"})
 	Page<AdmissionCertificate> findAllByStatus(AdmissionCertificateStatus status, Pageable pageable);
@@ -54,15 +57,32 @@ public interface AdmissionCertificateRepository extends JpaRepository<AdmissionC
 		""")
 	Optional<AdmissionCertificate> findDetailById(@Param("certificateId") Long certificateId);
 
-	// 승인 중 동일 증명서가 중복 처리되지 않도록 사용자와 함께 쓰기 잠금으로 조회한다.
+	// 동일 증명서가 중복 처리되지 않도록 증명서 행을 쓰기 잠금으로 조회한다.
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@EntityGraph(attributePaths = {"user"})
 	@Query("""
 		SELECT certificate
 		FROM AdmissionCertificate certificate
 		WHERE certificate.id = :certificateId
 		""")
 	Optional<AdmissionCertificate> findByIdForUpdate(@Param("certificateId") Long certificateId);
+
+	@Query("""
+		SELECT CASE WHEN COUNT(certificate) > 0 THEN true ELSE false END
+		FROM AdmissionCertificate certificate
+		WHERE certificate.user.id = :userId
+		  AND (
+		      certificate.createdAt > :createdAt
+		      OR (
+		          certificate.createdAt = :createdAt
+		          AND certificate.id > :certificateId
+		      )
+		  )
+		""")
+	boolean existsNewerSubmission(
+		@Param("userId") Long userId,
+		@Param("createdAt") LocalDateTime createdAt,
+		@Param("certificateId") Long certificateId
+	);
 
 	// 가장 최근 제출내역 조회(날짜 기준 + 동일한 경우 ID)
 	@Query("""
