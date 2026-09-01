@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/jjinbbang?serverTimezone=UTC&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:jjinbbang}
+    password: ${DB_PASSWORD:jjinbbang}
+
+logging:
+  level:
+    root: info
+    com.jjinbbang.server: debug

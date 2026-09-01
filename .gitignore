@@ -18,7 +18,51 @@
 *.zip
 *.tar.gz
 *.rar
+!gradle/wrapper/gradle-wrapper.jar
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+### Gradle ###
+.gradle/
+build/
+
+### IDE ###
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.vscode/
+.settings/
+.project
+.classpath
+bin/
+
+### 환경 변수 · 시크릿 ###
+# 이 저장소는 public 이다. 시크릿은 저장소에 두지 않고 Sealed Secrets 로 관리한다.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*credentials*
+*secret*.yml
+*secret*.yaml
+# 개인 로컬 오버라이드 (application-local.yml 자체는 시크릿이 없어 추적한다)
+application-*.local.yml
+application-local-*.yml
+
+### 로컬 · 내부 컨텍스트 ###
+# 로컬 경로 · 팀원 실명 분담 · 내부 운영 규칙은 여기 두고 커밋하지 않는다
+CLAUDE.md
+CLAUDE.local.md
+.claude/settings.local.json
+
+### OS ###
+.DS_Store
+Thumbs.db
