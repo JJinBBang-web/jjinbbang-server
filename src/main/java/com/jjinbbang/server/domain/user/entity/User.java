@@ -35,6 +35,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends SoftDeleteEntity {
 
+	private static final String DEFAULT_NICKNAME = "익명의 찐빵이";
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -49,6 +51,9 @@ public class User extends SoftDeleteEntity {
 
 	@Column(name = "provider_id", nullable = false, length = 100)
 	private String providerId;
+
+	@Column(nullable = false, length = 20)
+	private String nickname = DEFAULT_NICKNAME;
 
 	@Column(name = "student_number", length = 50)
 	private String studentNumber;
@@ -65,4 +70,18 @@ public class User extends SoftDeleteEntity {
 
 	@Column(name = "certificate_upload_date")
 	private LocalDateTime certificateUploadDate;
+
+	/** 승인된 합격증명서 정보를 사용자 인증 상태에 반영한다. */
+	public void approveAdmissionCertificate(String certificateUrl, LocalDateTime uploadedAt) {
+		admissionCertificate = certificateUrl;
+		verificationStatus = VerificationStatus.NEW_STUDENT_VERIFIED;
+		certificateUploadDate = uploadedAt;
+	}
+
+	/** 반려된 증명서가 사용자 인증 정보에 남지 않도록 미인증 상태로 초기화한다. */
+	public void rejectAdmissionCertificate() {
+		admissionCertificate = null;
+		verificationStatus = VerificationStatus.UNVERIFIED;
+		certificateUploadDate = null;
+	}
 }
