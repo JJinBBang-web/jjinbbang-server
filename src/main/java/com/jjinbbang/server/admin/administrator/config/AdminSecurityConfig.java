@@ -1,15 +1,25 @@
 package com.jjinbbang.server.admin.administrator.config;
 
+import java.time.Duration;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenDecoderFactory;
+import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenValidator;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
+import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.web.client.RestTemplate;
 
 import com.jjinbbang.server.admin.administrator.security.AdminAccessDeniedHandler;
 import com.jjinbbang.server.admin.administrator.security.AdminAuthenticationEntryPoint;
@@ -31,6 +41,25 @@ public class AdminSecurityConfig {
 	private final AdminAccessDeniedHandler accessDeniedHandler;
 	private final AdminOidcUserService oidcUserService;
 	private final AdminSessionValidationFilter sessionValidationFilter;
+
+	@Bean
+	JwtDecoderFactory<ClientRegistration> adminJwtDecoderFactory() {
+		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+		requestFactory.setConnectTimeout(Duration.ofSeconds(5));
+		requestFactory.setReadTimeout(Duration.ofSeconds(5));
+		RestTemplate restOperations = new RestTemplate(requestFactory);
+
+		return clientRegistration -> {
+			NimbusJwtDecoder decoder = NimbusJwtDecoder
+				.withJwkSetUri(clientRegistration.getProviderDetails().getJwkSetUri())
+				.restOperations(restOperations)
+				.build();
+			decoder.setJwtValidator(JwtValidators.createDefaultWithValidators(
+				new OidcIdTokenValidator(clientRegistration)));
+			decoder.setClaimSetConverter(OidcIdTokenDecoderFactory.createDefaultClaimTypeConverter());
+			return decoder;
+		};
+	}
 
 	@Bean
 	SecurityFilterChain adminSecurityFilterChain(
