@@ -26,11 +26,11 @@ public record ReviewResponse(
 	LocalDateTime createdAt
 ) {
 
-	public static ReviewResponse of(Review review, boolean hasBadWord, long reportCount) {
+	public static ReviewResponse of(Review review, long reportCount) {
 		return new ReviewResponse(
 			review.getId(),
 			review.getStatus(),
-			hasBadWord,
+			review.isProhibitedWordFlag(),
 			review.getUser().getUniversity().getName(),
 			review.getContent(),
 			review.getUser().getNickname(),

@@ -65,7 +65,6 @@ class JjinbbangServerApplicationTests {
 		"general_reviews",
 		"images",
 		"keywords",
-		"prohibited_word_flags",
 		"prohibited_words",
 		"reports",
 		"review_keywords",
@@ -134,7 +133,6 @@ class JjinbbangServerApplicationTests {
 			  AND table_name IN (
 			      'review_keywords',
 			      'dormitory_facilities',
-			      'prohibited_word_flags',
 			      'contents_likes'
 			  )
 			  AND referenced_table_name IS NOT NULL
@@ -161,8 +159,6 @@ class JjinbbangServerApplicationTests {
 			"review_keywords.keyword_id->keywords.id",
 			"dormitory_facilities.dorm_review_id->dorm_reviews.id",
 			"dormitory_facilities.facility_id->facilities.id",
-			"prohibited_word_flags.review_id->reviews.id",
-			"prohibited_word_flags.prohibited_word_id->prohibited_words.id",
 			"contents_likes.content_id->contents.id",
 			"contents_likes.user_id->users.id"
 		);

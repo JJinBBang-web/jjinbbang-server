@@ -2,7 +2,6 @@ package com.jjinbbang.server.admin.review.dto.response;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.springframework.data.domain.Page;
 
@@ -14,13 +13,9 @@ public record ReviewListResponse(
 	PageInfo pageInfo
 ) {
 
-	public static ReviewListResponse of(Page<Review> page, Set<Long> badWordReviewIds, Map<Long, Long> reportCounts) {
+	public static ReviewListResponse of(Page<Review> page, Map<Long, Long> reportCounts) {
 		List<ReviewResponse> reviewList = page.getContent().stream()
-			.map(review -> ReviewResponse.of(
-				review,
-				badWordReviewIds.contains(review.getId()),
-				reportCounts.getOrDefault(review.getId(), 0L)
-			))
+			.map(review -> ReviewResponse.of(review, reportCounts.getOrDefault(review.getId(), 0L)))
 			.toList();
 
 		return new ReviewListResponse(reviewList, PageInfo.from(page));

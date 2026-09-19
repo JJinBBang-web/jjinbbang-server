@@ -66,7 +66,16 @@ public class Review extends SoftDeleteEntity {
 	@Column(name = "like_count", nullable = false)
 	private Integer likeCount;
 
+	@Column(name = "prohibited_word_flag", nullable = false)
+	private boolean prohibitedWordFlag;
+
 	public void changeStatus(ReviewStatus status) {
 		this.status = status;
+	}
+
+	/** 마스킹을 확정하면서 본문을 치환하고 금칙어 플래그를 세운다. */
+	public void mask(String maskedContent) {
+		this.content = maskedContent;
+		this.prohibitedWordFlag = true;
 	}
 }

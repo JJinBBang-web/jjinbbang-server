@@ -53,12 +53,10 @@ class ReviewSpecificationsTest {
 	@org.junit.jupiter.api.BeforeEach
 	void setUp() {
 		jdbcTemplate = new JdbcTemplate(dataSource);
-		// FK가 걸린 자식 테이블(prohibited_word_flags → reviews·prohibited_words, reviews → users, users → universities)부터 지운다.
-		jdbcTemplate.update("DELETE FROM prohibited_word_flags");
+		// FK가 걸린 자식 테이블(reviews → users, users → universities)부터 지운다.
 		jdbcTemplate.update("DELETE FROM reviews");
 		jdbcTemplate.update("DELETE FROM users");
 		jdbcTemplate.update("DELETE FROM universities");
-		jdbcTemplate.update("DELETE FROM prohibited_words");
 
 		seoulUniversityId = insertUniversity("경상국립대학교");
 		busanUniversityId = insertUniversity("부산대학교");
@@ -205,11 +203,6 @@ class ReviewSpecificationsTest {
 	}
 
 	private void flagReview(Long reviewId) {
-		jdbcTemplate.update("INSERT INTO prohibited_words (word, is_enabled) VALUES (?, true)", "욕설-" + System.nanoTime());
-		Long wordId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-		jdbcTemplate.update(
-			"INSERT INTO prohibited_word_flags (review_id, prohibited_word_id) VALUES (?, ?)",
-			reviewId, wordId
-		);
+		jdbcTemplate.update("UPDATE reviews SET prohibited_word_flag = true WHERE id = ?", reviewId);
 	}
 }
