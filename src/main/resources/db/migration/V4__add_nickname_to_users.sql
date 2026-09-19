@@ -1,2 +1,0 @@
-ALTER TABLE users
-    ADD COLUMN nickname VARCHAR(50) NULL COMMENT '닉네임';
