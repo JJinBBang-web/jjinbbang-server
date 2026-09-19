@@ -18,13 +18,14 @@ import com.jjinbbang.server.domain.user.entity.User;
  * <p>스키마 때문에 명세서와 달라진 곳이 하나 있다 — {@code reviews}에 제목 컬럼이 없어
  * {@link ReviewResponse}·{@code ReportResponse}와 같은 이유로 title은 내려주지 않는다.
  *
- * <p>{@code historyList}는 {@link ActionHistory}를 내려주는데, 이 엔티티엔 {@code actionName}에
- * 해당하는 컬럼이 없다. 그래서 짧은 분류값인 {@code reason} 컬럼을 {@code actionName}에,
- * 긴 설명인 {@code detailReason} 컬럼을 응답의 {@code reason}에 매핑한다.
+ * <p>{@code historyList}는 {@link ActionHistory}를 내려주는데, 이 엔티티엔 {@code actionNames}에
+ * 해당하는 컬럼이 없다. 그래서 짧은 분류값인 {@code reason} 컬럼을 {@code actionNames}에,
+ * 긴 설명인 {@code detailReason} 컬럼을 응답의 {@code reason}에 매핑한다. {@code reason}은 사유가
+ * 여러 개면 쉼표로 합쳐 저장돼 있어 응답 시점에 다시 리스트로 쪼갠다.
  *
- * <p>지금은 {@code action_history}에 실제로 행을 써넣는 곳이 아직 하나도 없어서
- * {@code historyList}가 항상 빈 배열로 나가지만, 이건 데이터가 없어서지 조회 로직이 비어서가 아니다 —
- * 나중에 어떤 경로로든 행이 쌓이면 그대로 나간다.
+ * <p>리뷰 마스킹 확정({@code ReviewService.mask})이 {@code action_history}에 행을 쓰는 첫 경로다.
+ * 신고 기각은 아직 사유를 받지 않아 이력을 남기지 않으므로, {@code historyList}는 마스킹 조치만
+ * 채워진 채로 나갈 수 있다.
  */
 @JsonPropertyOrder({
 	"reviewId", "status", "schoolName", "hasBadWordFlag", "rating",
@@ -50,7 +51,6 @@ public record ReviewDetailResponse(
 
 	public static ReviewDetailResponse of(
 		Review review,
-		boolean hasBadWordFlag,
 		List<String> images,
 		List<Report> reports,
 		List<ActionHistory> actionHistories
@@ -61,7 +61,7 @@ public record ReviewDetailResponse(
 			review.getId(),
 			review.getStatus(),
 			user.getUniversity().getName(),
-			hasBadWordFlag,
+			review.isProhibitedWordFlag(),
 			review.getRating(),
 			review.getCreatedAt(),
 			reports.size(),
@@ -111,15 +111,16 @@ public record ReviewDetailResponse(
 	}
 
 	public record HistoryItem(
-		String actionName,
+		List<String> actionNames,
 		@JsonFormat(pattern = "yyyy-MM-dd HH:mm") LocalDateTime actionAt,
 		String handler,
 		String reason
 	) {
 
+		/** {@code actionHistory.reason}은 사유가 여러 개면 쉼표로 이어붙여 저장돼 있어 다시 리스트로 쪼갠다. */
 		public static HistoryItem from(ActionHistory actionHistory) {
 			return new HistoryItem(
-				actionHistory.getReason(),
+				List.of(actionHistory.getReason().split(",")),
 				actionHistory.getCreatedAt(),
 				actionHistory.getAdmin().getUsername(),
 				actionHistory.getDetailReason()

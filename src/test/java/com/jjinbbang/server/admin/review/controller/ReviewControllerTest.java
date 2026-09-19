@@ -8,15 +8,18 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,13 +29,21 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.jjinbbang.server.admin.administrator.security.AdminOidcUser;
 import com.jjinbbang.server.admin.review.dto.response.ReviewDetailResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
+import com.jjinbbang.server.admin.review.dto.response.ReviewMaskPreviewResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewResponse;
 import com.jjinbbang.server.admin.review.service.ReviewService;
+import com.jjinbbang.server.admin.review.type.ReviewMaskReason;
 import com.jjinbbang.server.admin.review.type.ReviewPeriodType;
 import com.jjinbbang.server.domain.review.exception.ReviewErrorCode;
 import com.jjinbbang.server.domain.review.type.ReviewStatus;
@@ -55,7 +66,13 @@ class ReviewControllerTest {
 	void setUp() {
 		mockMvc = MockMvcBuilders.standaloneSetup(reviewController)
 			.setControllerAdvice(new GlobalExceptionHandler())
+			.setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
 			.build();
+	}
+
+	@AfterEach
+	void tearDown() {
+		SecurityContextHolder.clearContext();
 	}
 
 	@Test
@@ -174,7 +191,7 @@ class ReviewControllerTest {
 			.andExpect(jsonPath("$.data.title").doesNotExist())
 			.andExpect(jsonPath("$.data.reportList[0].reportReason").value("욕설·비방"))
 			.andExpect(jsonPath("$.data.reportList[0].reporterId").value(5))
-			.andExpect(jsonPath("$.data.historyList[0].actionName").value("신고 기각"))
+			.andExpect(jsonPath("$.data.historyList[0].actionNames[0]").value("신고 기각"))
 			.andExpect(jsonPath("$.data.historyList[0].handler").value("ddochi"));
 	}
 
@@ -286,6 +303,110 @@ class ReviewControllerTest {
 			.andExpect(jsonPath("$.errorCode").value("INVALID_INPUT"));
 	}
 
+	@Test
+	@DisplayName("마스킹 미리보기는 금칙어가 치환된 본문을 응답한다")
+	void 마스킹_미리보기_응답_형태() throws Exception {
+		// given
+		given(reviewService.previewMask(1L)).willReturn(ReviewMaskPreviewResponse.from("집주인이 ** 진짜 별로예요"));
+
+		// when & then
+		mockMvc.perform(get("/api/admin/reviews/{reviewId}/mask", 1L))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(200))
+			.andExpect(jsonPath("$.message").value("리뷰 마스킹 미리보기 조회 성공"))
+			.andExpect(jsonPath("$.data.maskedContent").value("집주인이 ** 진짜 별로예요"));
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 리뷰를 마스킹 미리보기 조회하면 404 REVIEW_NOT_FOUND")
+	void 존재하지_않는_리뷰_마스킹_미리보기는_404() throws Exception {
+		// given
+		given(reviewService.previewMask(999L)).willThrow(ReviewErrorCode.REVIEW_NOT_FOUND.exception());
+
+		// when & then
+		mockMvc.perform(get("/api/admin/reviews/{reviewId}/mask", 999L))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_FOUND"));
+	}
+
+	@Test
+	@DisplayName("마스킹을 확정하면 200 이고 data 는 비어 있다")
+	void 마스킹_확정은_200() throws Exception {
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/mask", 1L)
+				.with(admin(9L))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"reasons\":[\"BAD_WORD\"],\"detailReason\":\"직접 입력한 사유\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("리뷰 마스킹 성공"))
+			.andExpect(jsonPath("$.data").value(nullValue()));
+
+		then(reviewService).should().mask(1L, 9L, List.of(ReviewMaskReason.BAD_WORD), "직접 입력한 사유");
+	}
+
+	@Test
+	@DisplayName("사유를 여러 개 선택하면 그대로 서비스에 전달된다")
+	void 여러_사유를_선택하면_그대로_전달된다() throws Exception {
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/mask", 1L)
+				.with(admin(9L))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"reasons\":[\"BAD_WORD\",\"PRIVACY_EXPOSURE\"]}"))
+			.andExpect(status().isOk());
+
+		then(reviewService).should()
+			.mask(1L, 9L, List.of(ReviewMaskReason.BAD_WORD, ReviewMaskReason.PRIVACY_EXPOSURE), null);
+	}
+
+	@Test
+	@DisplayName("reasons 를 빼면 400 이다 — 빠진 값이 조용히 특정 사유로 정해지지 않는다")
+	void reasons_누락은_400() throws Exception {
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/mask", 1L)
+				.with(admin(9L))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errorCode").value("INVALID_INPUT"))
+			.andExpect(jsonPath("$.errors[0].field").value("reasons"));
+	}
+
+	@Test
+	@DisplayName("reasons 가 빈 배열이면 400 이다")
+	void reasons가_빈_배열이면_400() throws Exception {
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/mask", 1L)
+				.with(admin(9L))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"reasons\":[]}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errorCode").value("INVALID_INPUT"));
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 리뷰를 마스킹 확정하면 404 REVIEW_NOT_FOUND")
+	void 존재하지_않는_리뷰_마스킹_확정은_404() throws Exception {
+		// given
+		willThrow(ReviewErrorCode.REVIEW_NOT_FOUND.exception())
+			.given(reviewService).mask(999L, 9L, List.of(ReviewMaskReason.BAD_WORD), null);
+
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/mask", 999L)
+				.with(admin(9L))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"reasons\":[\"BAD_WORD\"]}"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_FOUND"));
+	}
+
+	/** {@code standaloneSetup}은 시큐리티 필터체인이 없어 {@code SecurityContextHolder}를 직접 채운다. */
+	private RequestPostProcessor admin(Long adminId) {
+		return request -> {
+			AdminOidcUser principal = new AdminOidcUser(mock(OidcUser.class), adminId);
+			SecurityContextHolder.getContext()
+				.setAuthentication(new TestingAuthenticationToken(principal, null));
+			return request;
+		};
+	}
+
 	private ReviewDetailResponse detailResponse() {
 		return new ReviewDetailResponse(
 			1L, ReviewStatus.PUBLIC, "찐빵대학교", true, 1,
@@ -293,7 +414,9 @@ class ReviewControllerTest {
 			List.of("https://img/1", "https://img/2"),
 			5L, "장전동거주자", "kim***@pusan.ac.kr",
 			List.of(new ReviewDetailResponse.ReportItem("욕설·비방", 5L, LocalDateTime.of(2026, 6, 2, 14, 30))),
-			List.of(new ReviewDetailResponse.HistoryItem("신고 기각", LocalDateTime.of(2026, 6, 2, 14, 2), "ddochi", "근거 부족"))
+			List.of(new ReviewDetailResponse.HistoryItem(
+				List.of("신고 기각"), LocalDateTime.of(2026, 6, 2, 14, 2), "ddochi", "근거 부족"
+			))
 		);
 	}
 

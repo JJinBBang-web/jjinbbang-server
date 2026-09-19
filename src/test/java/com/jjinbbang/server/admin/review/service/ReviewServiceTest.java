@@ -2,7 +2,9 @@ package com.jjinbbang.server.admin.review.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -29,13 +31,17 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.jjinbbang.server.admin.administrator.entity.ActionHistory;
 import com.jjinbbang.server.admin.administrator.entity.Admin;
 import com.jjinbbang.server.admin.administrator.repository.ActionHistoryRepository;
+import com.jjinbbang.server.admin.administrator.repository.AdminRepository;
+import com.jjinbbang.server.admin.moderation.entity.ProhibitedWord;
 import com.jjinbbang.server.admin.moderation.entity.Report;
-import com.jjinbbang.server.admin.moderation.repository.ProhibitedWordFlagRepository;
+import com.jjinbbang.server.admin.moderation.repository.ProhibitedWordRepository;
 import com.jjinbbang.server.admin.moderation.repository.ReportRepository;
 import com.jjinbbang.server.admin.moderation.type.ReportStatus;
 import com.jjinbbang.server.admin.review.dto.response.ReviewDetailResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
+import com.jjinbbang.server.admin.review.dto.response.ReviewMaskPreviewResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewResponse;
+import com.jjinbbang.server.admin.review.type.ReviewMaskReason;
 import com.jjinbbang.server.domain.common.entity.University;
 import com.jjinbbang.server.domain.review.entity.Review;
 import com.jjinbbang.server.domain.review.entity.ReviewImage;
@@ -62,16 +68,19 @@ class ReviewServiceTest {
 	private ReportRepository reportRepository;
 
 	@Mock
-	private ProhibitedWordFlagRepository prohibitedWordFlagRepository;
+	private ProhibitedWordRepository prohibitedWordRepository;
 
 	@Mock
 	private ActionHistoryRepository actionHistoryRepository;
+
+	@Mock
+	private AdminRepository adminRepository;
 
 	@InjectMocks
 	private ReviewService reviewService;
 
 	@Test
-	@DisplayName("조회된 리뷰가 없으면 금칙어·신고 건수 배치 조회를 하지 않는다")
+	@DisplayName("조회된 리뷰가 없으면 신고 건수 배치 조회를 하지 않는다")
 	void 리뷰가_없으면_배치_조회를_하지_않는다() {
 		// given
 		given(reviewRepository.findAll(ArgumentMatchers.<Specification<Review>>any(), eq(PAGEABLE)))
@@ -82,7 +91,6 @@ class ReviewServiceTest {
 
 		// then
 		assertThat(response.reviewList()).isEmpty();
-		then(prohibitedWordFlagRepository).should(never()).findFlaggedReviewIds(anyList());
 		then(reportRepository).should(never()).countByReviewIdIn(anyList());
 	}
 
@@ -91,11 +99,10 @@ class ReviewServiceTest {
 	void 금칙어_플래그와_신고_건수가_반영된다() {
 		// given
 		Review flagged = review(1L, "욕설 포함 리뷰");
+		ReflectionTestUtils.setField(flagged, "prohibitedWordFlag", true);
 		Review clean = review(2L, "평범한 리뷰");
 		given(reviewRepository.findAll(ArgumentMatchers.<Specification<Review>>any(), eq(PAGEABLE)))
 			.willReturn(new PageImpl<>(List.of(flagged, clean), PAGEABLE, 2));
-		given(prohibitedWordFlagRepository.findFlaggedReviewIds(List.of(1L, 2L)))
-			.willReturn(List.of(1L));
 		given(reportRepository.countByReviewIdIn(List.of(1L, 2L)))
 			.willReturn(List.<Object[]>of(new Object[] {2L, 3L}));
 
@@ -120,7 +127,6 @@ class ReviewServiceTest {
 		// given
 		given(reviewRepository.findAll(ArgumentMatchers.<Specification<Review>>any(), eq(PAGEABLE)))
 			.willReturn(new PageImpl<>(List.of(review(1L, "내용")), PAGEABLE, 1));
-		given(prohibitedWordFlagRepository.findFlaggedReviewIds(List.of(1L))).willReturn(List.of());
 		given(reportRepository.countByReviewIdIn(List.of(1L))).willReturn(List.of());
 
 		// when
@@ -166,8 +172,8 @@ class ReviewServiceTest {
 	void 리뷰_상세는_연관_정보를_채워_응답한다() {
 		// given
 		Review review = review(1L, "욕설 포함 리뷰", "kim1234@pusan.ac.kr");
+		ReflectionTestUtils.setField(review, "prohibitedWordFlag", true);
 		given(reviewRepository.findDetailById(1L)).willReturn(Optional.of(review));
-		given(prohibitedWordFlagRepository.existsByReviewId(1L)).willReturn(true);
 		given(reviewImageRepository.findByReviewIdOrderBySortOrderAsc(1L))
 			.willReturn(List.of(reviewImage(review, "https://img/1"), reviewImage(review, "https://img/2")));
 		given(reportRepository.findByReviewIdOrderByCreatedAtAsc(1L))
@@ -190,9 +196,28 @@ class ReviewServiceTest {
 		assertThat(response.reportList().getFirst().reportReason()).isEqualTo("욕설·비방");
 		assertThat(response.reportList().getFirst().reporterId()).isEqualTo(5L);
 		assertThat(response.historyList()).hasSize(1);
-		assertThat(response.historyList().getFirst().actionName()).isEqualTo("신고 기각");
+		assertThat(response.historyList().getFirst().actionNames()).containsExactly("신고 기각");
 		assertThat(response.historyList().getFirst().reason()).isEqualTo("근거 부족");
 		assertThat(response.historyList().getFirst().handler()).isEqualTo("ddochi");
+	}
+
+	@Test
+	@DisplayName("여러 사유가 쉼표로 합쳐진 조치 이력은 개별 사유 리스트로 쪼개져 응답한다")
+	void 조치_이력의_여러_사유가_리스트로_쪼개진다() {
+		// given
+		Review review = review(1L, "내용");
+		given(reviewRepository.findDetailById(1L)).willReturn(Optional.of(review));
+		given(reviewImageRepository.findByReviewIdOrderBySortOrderAsc(1L)).willReturn(List.of());
+		given(reportRepository.findByReviewIdOrderByCreatedAtAsc(1L)).willReturn(List.of());
+		given(actionHistoryRepository.findByReviewIdOrderByCreatedAtAsc(1L))
+			.willReturn(List.of(actionHistory("BAD_WORD,PRIVACY_EXPOSURE", "직접 입력한 사유", "ddochi")));
+
+		// when
+		ReviewDetailResponse response = reviewService.findById(1L);
+
+		// then
+		assertThat(response.historyList().getFirst().actionNames())
+			.containsExactly("BAD_WORD", "PRIVACY_EXPOSURE");
 	}
 
 	@Test
@@ -201,7 +226,6 @@ class ReviewServiceTest {
 		// given
 		Review review = review(1L, "내용", null);
 		given(reviewRepository.findDetailById(1L)).willReturn(Optional.of(review));
-		given(prohibitedWordFlagRepository.existsByReviewId(1L)).willReturn(false);
 		given(reviewImageRepository.findByReviewIdOrderBySortOrderAsc(1L)).willReturn(List.of());
 		given(reportRepository.findByReviewIdOrderByCreatedAtAsc(1L)).willReturn(List.of());
 		given(actionHistoryRepository.findByReviewIdOrderByCreatedAtAsc(1L)).willReturn(List.of());
@@ -283,6 +307,149 @@ class ReviewServiceTest {
 
 		// then
 		assertThat(review.getStatus()).isEqualTo(ReviewStatus.PRIVATE);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 리뷰는 마스킹 미리보기를 조회하면 404를 던진다")
+	void 존재하지_않는_리뷰_마스킹_미리보기는_404() {
+		// given
+		given(reviewRepository.findById(999L)).willReturn(Optional.empty());
+
+		// when & then
+		assertThatThrownBy(() -> reviewService.previewMask(999L))
+			.isInstanceOf(BusinessException.class)
+			.extracting(exception -> ((BusinessException) exception).getErrorCode())
+			.isEqualTo(ReviewErrorCode.REVIEW_NOT_FOUND);
+	}
+
+	@Test
+	@DisplayName("활성 금칙어와 일치하는 부분만 같은 길이의 * 로 치환한다")
+	void 활성_금칙어를_마스킹한다() {
+		// given
+		Review review = review(1L, "집주인이 욕설 진짜 별로예요");
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+		given(prohibitedWordRepository.findAllByEnabledTrueAndDeletedAtIsNull())
+			.willReturn(List.of(prohibitedWord("욕설")));
+
+		// when
+		ReviewMaskPreviewResponse response = reviewService.previewMask(1L);
+
+		// then
+		assertThat(response.maskedContent()).isEqualTo("집주인이 ** 진짜 별로예요");
+	}
+
+	@Test
+	@DisplayName("비활성 금칙어는 조회 대상에서 빠지므로 마스킹되지 않는다")
+	void 비활성_금칙어는_조회되지_않아_마스킹되지_않는다() {
+		// given
+		Review review = review(1L, "집주인이 욕설 진짜 별로예요");
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+		given(prohibitedWordRepository.findAllByEnabledTrueAndDeletedAtIsNull()).willReturn(List.of());
+
+		// when
+		ReviewMaskPreviewResponse response = reviewService.previewMask(1L);
+
+		// then
+		assertThat(response.maskedContent()).isEqualTo("집주인이 욕설 진짜 별로예요");
+	}
+
+	@Test
+	@DisplayName("금칙어 글자 사이에 문자가 2개까지 끼어도 우회로 보고 매칭 길이만큼 마스킹한다")
+	void 글자_사이에_문자가_2개까지_끼어도_마스킹된다() {
+		// given
+		Review review = review(1L, "집주인이 씨1@발 진짜 별로예요");
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+		given(prohibitedWordRepository.findAllByEnabledTrueAndDeletedAtIsNull())
+			.willReturn(List.of(prohibitedWord("씨발")));
+
+		// when
+		ReviewMaskPreviewResponse response = reviewService.previewMask(1L);
+
+		// then
+		assertThat(response.maskedContent()).isEqualTo("집주인이 **** 진짜 별로예요");
+	}
+
+	@Test
+	@DisplayName("금칙어 글자 사이에 문자가 3개 이상 끼면 우회로 보지 않고 마스킹하지 않는다")
+	void 글자_사이에_문자가_3개_이상이면_마스킹되지_않는다() {
+		// given
+		Review review = review(1L, "집주인이 씨123발 진짜 별로예요");
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+		given(prohibitedWordRepository.findAllByEnabledTrueAndDeletedAtIsNull())
+			.willReturn(List.of(prohibitedWord("씨발")));
+
+		// when
+		ReviewMaskPreviewResponse response = reviewService.previewMask(1L);
+
+		// then
+		assertThat(response.maskedContent()).isEqualTo("집주인이 씨123발 진짜 별로예요");
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 리뷰는 마스킹을 확정하면 404를 던진다")
+	void 존재하지_않는_리뷰_마스킹_확정은_404() {
+		// given
+		given(reviewRepository.findById(999L)).willReturn(Optional.empty());
+
+		// when & then
+		assertThatThrownBy(() -> reviewService.mask(999L, 1L, List.of(ReviewMaskReason.BAD_WORD), null))
+			.isInstanceOf(BusinessException.class)
+			.extracting(exception -> ((BusinessException) exception).getErrorCode())
+			.isEqualTo(ReviewErrorCode.REVIEW_NOT_FOUND);
+
+		then(actionHistoryRepository).should(never()).save(any());
+	}
+
+	@Test
+	@DisplayName("마스킹을 확정하면 본문이 치환되고 금칙어 플래그가 세워지며 조치 이력이 남는다")
+	void 마스킹을_확정한다() {
+		// given
+		Review review = review(1L, "집주인이 욕설 진짜 별로예요");
+		Admin admin = BeanUtils.instantiateClass(Admin.class);
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+		given(prohibitedWordRepository.findAllByEnabledTrueAndDeletedAtIsNull())
+			.willReturn(List.of(prohibitedWord("욕설")));
+		given(adminRepository.getReferenceById(9L)).willReturn(admin);
+
+		// when
+		reviewService.mask(1L, 9L, List.of(ReviewMaskReason.BAD_WORD), "직접 입력한 사유");
+
+		// then
+		assertThat(review.getContent()).isEqualTo("집주인이 ** 진짜 별로예요");
+		assertThat(review.isProhibitedWordFlag()).isTrue();
+
+		then(actionHistoryRepository).should().save(argThat(actionHistory ->
+			actionHistory.getReview() == review
+				&& actionHistory.getAdmin() == admin
+				&& actionHistory.getReason().equals("BAD_WORD")
+				&& actionHistory.getDetailReason().equals("직접 입력한 사유")
+		));
+	}
+
+	@Test
+	@DisplayName("사유를 여러 개 선택하면 쉼표로 이어붙여 조치 이력에 남는다")
+	void 여러_사유를_선택하면_쉼표로_합쳐_저장한다() {
+		// given
+		Review review = review(1L, "내용");
+		Admin admin = BeanUtils.instantiateClass(Admin.class);
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+		given(prohibitedWordRepository.findAllByEnabledTrueAndDeletedAtIsNull()).willReturn(List.of());
+		given(adminRepository.getReferenceById(9L)).willReturn(admin);
+
+		// when
+		reviewService.mask(1L, 9L, List.of(ReviewMaskReason.BAD_WORD, ReviewMaskReason.PRIVACY_EXPOSURE), null);
+
+		// then
+		then(actionHistoryRepository).should().save(argThat(actionHistory ->
+			actionHistory.getReason().equals("BAD_WORD,PRIVACY_EXPOSURE")
+		));
+	}
+
+	private ProhibitedWord prohibitedWord(String word) {
+		ProhibitedWord prohibitedWord = BeanUtils.instantiateClass(ProhibitedWord.class);
+		ReflectionTestUtils.setField(prohibitedWord, "word", word);
+		ReflectionTestUtils.setField(prohibitedWord, "enabled", true);
+		return prohibitedWord;
 	}
 
 	private ReviewImage reviewImage(Review review, String url) {

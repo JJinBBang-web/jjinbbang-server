@@ -4,18 +4,23 @@ import java.util.List;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.jjinbbang.server.admin.administrator.security.AdminOidcUser;
+import com.jjinbbang.server.admin.review.dto.request.ReviewMaskRequest;
 import com.jjinbbang.server.admin.review.dto.request.ReviewStatusUpdateRequest;
 import com.jjinbbang.server.admin.review.dto.response.ReviewDetailResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
+import com.jjinbbang.server.admin.review.dto.response.ReviewMaskPreviewResponse;
 import com.jjinbbang.server.admin.review.service.ReviewService;
 import com.jjinbbang.server.admin.review.type.ReviewPeriodType;
 import com.jjinbbang.server.domain.review.type.ReviewStatus;
@@ -80,5 +85,20 @@ public class ReviewController {
 	) {
 		reviewService.updateStatus(reviewId, request.status());
 		return new ResTemplate<>(HttpStatus.OK, "리뷰 상태 변경 성공");
+	}
+
+	@GetMapping("/{reviewId}/mask")
+	public ResTemplate<ReviewMaskPreviewResponse> previewMask(@PathVariable("reviewId") Long reviewId) {
+		return new ResTemplate<>(HttpStatus.OK, "리뷰 마스킹 미리보기 조회 성공", reviewService.previewMask(reviewId));
+	}
+
+	@PostMapping("/{reviewId}/mask")
+	public ResTemplate<Void> mask(
+		@PathVariable("reviewId") Long reviewId,
+		@Valid @RequestBody ReviewMaskRequest request,
+		@AuthenticationPrincipal AdminOidcUser principal
+	) {
+		reviewService.mask(reviewId, principal.getAdminId(), request.reasons(), request.detailReason());
+		return new ResTemplate<>(HttpStatus.OK, "리뷰 마스킹 성공");
 	}
 }
