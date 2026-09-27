@@ -1,5 +1,7 @@
 package com.jjinbbang.server.admin.moderation.repository;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -49,4 +51,20 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 		countQuery = "SELECT COUNT(r) FROM Report r WHERE r.status = :status"
 	)
 	Page<Report> findPageByStatusWithDetails(@Param("status") ReportStatus status, Pageable pageable);
+
+	/** 리뷰 목록에서 행마다 신고 건수를 보여주려고 배치로 센다. {@code row[0]}은 {@code reviewId}, {@code row[1]}은 건수다. */
+	@Query("SELECT r.review.id, COUNT(r) FROM Report r WHERE r.review.id IN :reviewIds GROUP BY r.review.id")
+	List<Object[]> countByReviewIdIn(@Param("reviewIds") List<Long> reviewIds);
+
+	/**
+	 * 리뷰 상세 화면의 신고 목록. {@code r.user}가 {@code LEFT JOIN}인 이유는
+	 * {@link #findPageWithDetails}와 같다 — {@code reports.user_id}가 nullable이다.
+	 */
+	@Query("""
+		SELECT r FROM Report r
+		LEFT JOIN FETCH r.user
+		WHERE r.review.id = :reviewId
+		ORDER BY r.createdAt ASC
+		""")
+	List<Report> findByReviewIdOrderByCreatedAtAsc(@Param("reviewId") Long reviewId);
 }
