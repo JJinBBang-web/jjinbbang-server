@@ -2,6 +2,7 @@ package com.jjinbbang.server.admin.review.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.hamcrest.Matchers.nullValue;
@@ -28,6 +29,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,6 +47,7 @@ import com.jjinbbang.server.admin.review.dto.response.ReviewResponse;
 import com.jjinbbang.server.admin.review.service.ReviewService;
 import com.jjinbbang.server.admin.review.type.ReviewMaskReason;
 import com.jjinbbang.server.admin.review.type.ReviewPeriodType;
+import com.jjinbbang.server.admin.review.type.ReviewSortType;
 import com.jjinbbang.server.domain.review.exception.ReviewErrorCode;
 import com.jjinbbang.server.domain.review.type.ReviewStatus;
 import com.jjinbbang.server.global.error.GlobalExceptionHandler;
@@ -79,7 +82,7 @@ class ReviewControllerTest {
 	@DisplayName("목록 조회는 reviewList 와 pageInfo 로 나간다")
 	void 목록_응답_형태() throws Exception {
 		// given
-		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any())).willReturn(listResponse());
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
 
 		// when & then
 		mockMvc.perform(get("/api/admin/reviews"))
@@ -96,7 +99,7 @@ class ReviewControllerTest {
 	@DisplayName("명세서에 있던 title 은 응답에 없다")
 	void 응답에_title은_없다() throws Exception {
 		// given
-		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any())).willReturn(listResponse());
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
 
 		// when & then
 		mockMvc.perform(get("/api/admin/reviews"))
@@ -108,14 +111,14 @@ class ReviewControllerTest {
 	@DisplayName("파라미터를 하나도 안 주면 기본값(빈 필터·0페이지·20건·최신순)으로 조회한다")
 	void 파라미터가_없으면_기본값으로_조회한다() throws Exception {
 		// given
-		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any())).willReturn(listResponse());
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
 
 		// when
 		mockMvc.perform(get("/api/admin/reviews")).andExpect(status().isOk());
 
 		// then
 		then(reviewService).should().findAll(
-			isNull(), isNull(), isNull(), isNull(), eq(false), any(Pageable.class)
+			isNull(), isNull(), isNull(), isNull(), eq(false), eq(ReviewSortType.LATEST), eq(Sort.Direction.DESC), any(Pageable.class)
 		);
 	}
 
@@ -123,7 +126,7 @@ class ReviewControllerTest {
 	@DisplayName("schoolNames 를 여러 번 주면 목록으로 바인딩된다")
 	void schoolNames_는_목록으로_바인딩된다() throws Exception {
 		// given
-		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any())).willReturn(listResponse());
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
 
 		// when
 		mockMvc.perform(get("/api/admin/reviews")
@@ -132,7 +135,7 @@ class ReviewControllerTest {
 
 		// then
 		then(reviewService).should().findAll(
-			isNull(), eq(List.of("경상국립대학교", "부산대학교")), isNull(), isNull(), eq(false), any(Pageable.class)
+			isNull(), eq(List.of("경상국립대학교", "부산대학교")), isNull(), isNull(), eq(false), eq(ReviewSortType.LATEST), eq(Sort.Direction.DESC), any(Pageable.class)
 		);
 	}
 
@@ -155,10 +158,51 @@ class ReviewControllerTest {
 	}
 
 	@Test
+	@DisplayName("sort 와 direction 은 그대로 서비스에 전달되고, Pageable 에는 정렬을 싣지 않는다")
+	void sort와_direction이_그대로_전달된다() throws Exception {
+		// given
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
+
+		// when
+		mockMvc.perform(get("/api/admin/reviews")
+			.param("sort", "REPORT")
+			.param("direction", "ASC")
+			.param("page", "2")
+			.param("size", "10"))
+			.andExpect(status().isOk());
+
+		// then
+		then(reviewService).should().findAll(
+			isNull(), isNull(), isNull(), isNull(), eq(false), eq(ReviewSortType.REPORT), eq(Sort.Direction.ASC),
+			argThat((Pageable pageable) -> pageable.getPageNumber() == 2
+				&& pageable.getPageSize() == 10
+				&& pageable.getSort().isUnsorted())
+		);
+	}
+
+	@Test
+	@DisplayName("sort 가 enum 밖의 값이면 400 INVALID_TYPE — 프론트가 쓰던 RATING_HIGH 도 여기에 해당한다")
+	void 알_수_없는_sort는_400() throws Exception {
+		mockMvc.perform(get("/api/admin/reviews").param("sort", "RATING_HIGH"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errorCode").value("INVALID_TYPE"))
+			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다. (sort)"));
+	}
+
+	@Test
+	@DisplayName("direction 이 ASC·DESC 밖의 값이면 400 INVALID_TYPE")
+	void 알_수_없는_direction은_400() throws Exception {
+		mockMvc.perform(get("/api/admin/reviews").param("direction", "UP"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errorCode").value("INVALID_TYPE"))
+			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다. (direction)"));
+	}
+
+	@Test
 	@DisplayName("hasBadWordOnly=true 를 주면 그대로 서비스에 전달된다")
 	void hasBadWordOnly가_그대로_전달된다() throws Exception {
 		// given
-		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any())).willReturn(listResponse());
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
 
 		// when
 		mockMvc.perform(get("/api/admin/reviews")
@@ -169,7 +213,7 @@ class ReviewControllerTest {
 
 		// then
 		then(reviewService).should().findAll(
-			isNull(), isNull(), eq(ReviewPeriodType.LAST_7_DAYS), eq(ReviewStatus.PUBLIC), eq(true), any(Pageable.class)
+			isNull(), isNull(), eq(ReviewPeriodType.LAST_7_DAYS), eq(ReviewStatus.PUBLIC), eq(true), eq(ReviewSortType.LATEST), eq(Sort.Direction.DESC), any(Pageable.class)
 		);
 	}
 

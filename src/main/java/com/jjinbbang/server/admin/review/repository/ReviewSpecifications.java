@@ -4,8 +4,12 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
+import com.jjinbbang.server.admin.moderation.entity.Report;
+import com.jjinbbang.server.admin.moderation.entity.Report_;
+import com.jjinbbang.server.admin.review.type.ReviewSortType;
 import com.jjinbbang.server.domain.common.entity.University;
 import com.jjinbbang.server.domain.common.entity.University_;
 import com.jjinbbang.server.domain.review.entity.Review;
@@ -14,10 +18,16 @@ import com.jjinbbang.server.domain.review.type.ReviewStatus;
 import com.jjinbbang.server.domain.user.entity.User;
 import com.jjinbbang.server.domain.user.entity.User_;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.FetchParent;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 
 /**
  * 어드민 리뷰 목록의 다중 필터 조건.
@@ -81,5 +91,60 @@ public final class ReviewSpecifications {
 
 			return cb.and(predicates.toArray(new Predicate[0]));
 		};
+	}
+
+	/**
+	 * 정렬 기준과 방향에 맞는 {@code ORDER BY}를 건다. 모든 기준을 여기서 처리한다.
+	 *
+	 * <p>{@code REPORT}는 신고 건수가 {@code reviews}의 컬럼이 아니라 {@code reports}를 세야 나와서
+	 * {@link org.springframework.data.domain.Sort}로 표현할 수 없다 — 상관 서브쿼리를 {@code ORDER BY}에 쓴다.
+	 * 기준마다 {@code Sort}와 Specification으로 나누면 정렬 방식이 둘이 되므로 한곳에서 건다.
+	 *
+	 * <p>정렬은 {@code query.orderBy}로 직접 건다. {@code Pageable}에 정렬이 있으면 Spring Data가
+	 * 그 정렬로 덮어쓰므로, 이 Specification을 쓸 때는 정렬 없는 {@code Pageable}을 넘겨야 한다.
+	 * count 쿼리에는 정렬이 필요 없어 건너뛴다.
+	 *
+	 * <p>신고 건수는 처리 상태를 가리지 않고 센다 — 목록에 내려주는 {@code reportCount}와 같은 기준이다.
+	 *
+	 * <p>동률일 때 페이지 경계에서 행이 중복되거나 빠지지 않도록 {@code id}까지 정렬 키에 넣는다.
+	 * {@code LATEST}는 방향을 {@code createdAt}·{@code id}에 같이 적용하고,
+	 * {@code RATING}·{@code REPORT}는 동률을 항상 최신순({@code createdAt DESC, id DESC})으로 푼다.
+	 */
+	public static Specification<Review> orderBy(ReviewSortType sortType, Sort.Direction direction) {
+		return (root, query, cb) -> {
+			if (Long.class == query.getResultType()) {
+				return null;
+			}
+
+			boolean ascending = direction.isAscending();
+			Path<?> createdAt = root.get(Review_.createdAt);
+			Path<?> id = root.get(Review_.id);
+
+			List<Order> orders = switch (sortType) {
+				case LATEST -> List.of(
+					directed(cb, createdAt, ascending),
+					directed(cb, id, ascending)
+				);
+				case RATING -> List.of(
+					directed(cb, root.get(Review_.rating), ascending),
+					cb.desc(createdAt),
+					cb.desc(id)
+				);
+				case REPORT -> {
+					Subquery<Long> reportCount = query.subquery(Long.class);
+					Root<Report> report = reportCount.from(Report.class);
+					reportCount.select(cb.count(report)).where(cb.equal(report.get(Report_.review), root));
+
+					yield List.of(directed(cb, reportCount, ascending), cb.desc(createdAt), cb.desc(id));
+				}
+			};
+			query.orderBy(orders);
+
+			return null;
+		};
+	}
+
+	private static Order directed(CriteriaBuilder cb, Expression<?> expression, boolean ascending) {
+		return ascending ? cb.asc(expression) : cb.desc(expression);
 	}
 }

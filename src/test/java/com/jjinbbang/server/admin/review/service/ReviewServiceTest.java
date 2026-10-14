@@ -17,6 +17,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -25,6 +27,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -42,6 +45,7 @@ import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewMaskPreviewResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewResponse;
 import com.jjinbbang.server.admin.review.type.ReviewMaskReason;
+import com.jjinbbang.server.admin.review.type.ReviewSortType;
 import com.jjinbbang.server.domain.common.entity.University;
 import com.jjinbbang.server.domain.review.entity.Review;
 import com.jjinbbang.server.domain.review.entity.ReviewImage;
@@ -56,6 +60,7 @@ import com.jjinbbang.server.global.error.BusinessException;
 @DisplayName("ReviewService")
 class ReviewServiceTest {
 
+	/** 정렬은 Specification 이 걸기 때문에 리포지토리로 넘어가는 Pageable 에는 페이지 번호와 크기만 있다. */
 	private static final Pageable PAGEABLE = PageRequest.of(0, 20);
 
 	@Mock
@@ -87,7 +92,7 @@ class ReviewServiceTest {
 			.willReturn(new PageImpl<>(List.of(), PAGEABLE, 0));
 
 		// when
-		ReviewListResponse response = reviewService.findAll(null, null, null, null, false, PAGEABLE);
+		ReviewListResponse response = reviewService.findAll(null, null, null, null, false, ReviewSortType.LATEST, Sort.Direction.DESC, PAGEABLE);
 
 		// then
 		assertThat(response.reviewList()).isEmpty();
@@ -108,7 +113,7 @@ class ReviewServiceTest {
 
 		// when
 		List<ReviewResponse> reviewList = reviewService
-			.findAll(null, null, null, null, false, PAGEABLE)
+			.findAll(null, null, null, null, false, ReviewSortType.LATEST, Sort.Direction.DESC, PAGEABLE)
 			.reviewList();
 
 		// then
@@ -130,7 +135,7 @@ class ReviewServiceTest {
 		given(reportRepository.countByReviewIdIn(List.of(1L))).willReturn(List.of());
 
 		// when
-		ReviewResponse response = reviewService.findAll(null, null, null, null, false, PAGEABLE)
+		ReviewResponse response = reviewService.findAll(null, null, null, null, false, ReviewSortType.LATEST, Sort.Direction.DESC, PAGEABLE)
 			.reviewList()
 			.getFirst();
 
@@ -148,7 +153,23 @@ class ReviewServiceTest {
 			.willReturn(new PageImpl<>(List.of(), PAGEABLE, 0));
 
 		// when
-		reviewService.findAll("키워드", List.of("찐빵대학교"), null, ReviewStatus.PUBLIC, true, PAGEABLE);
+		reviewService.findAll("키워드", List.of("찐빵대학교"), null, ReviewStatus.PUBLIC, true, ReviewSortType.LATEST, Sort.Direction.DESC, PAGEABLE);
+
+		// then
+		then(reviewRepository).should().findAll(ArgumentMatchers.<Specification<Review>>any(), eq(PAGEABLE));
+	}
+
+	@ParameterizedTest
+	@EnumSource(ReviewSortType.class)
+	@DisplayName("호출하는 쪽이 정렬이 담긴 Pageable 을 넘겨도 정렬 없는 Pageable 로 위임한다 — 남겨 두면 Spring Data 가 Specification 의 정렬을 덮어쓴다")
+	void 정렬이_담긴_Pageable도_정렬_없이_위임한다(ReviewSortType sortType) {
+		// given
+		Pageable inputWithSort = PageRequest.of(0, 20, Sort.by("createdAt"));
+		given(reviewRepository.findAll(ArgumentMatchers.<Specification<Review>>any(), eq(PAGEABLE)))
+			.willReturn(new PageImpl<>(List.of(), PAGEABLE, 0));
+
+		// when
+		reviewService.findAll(null, null, null, null, false, sortType, Sort.Direction.ASC, inputWithSort);
 
 		// then
 		then(reviewRepository).should().findAll(ArgumentMatchers.<Specification<Review>>any(), eq(PAGEABLE));

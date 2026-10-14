@@ -23,6 +23,7 @@ import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewMaskPreviewResponse;
 import com.jjinbbang.server.admin.review.service.ReviewService;
 import com.jjinbbang.server.admin.review.type.ReviewPeriodType;
+import com.jjinbbang.server.admin.review.type.ReviewSortType;
 import com.jjinbbang.server.domain.review.type.ReviewStatus;
 import com.jjinbbang.server.global.paging.PageRequests;
 import com.jjinbbang.server.global.template.ResTemplate;
@@ -33,15 +34,14 @@ import lombok.RequiredArgsConstructor;
 /**
  * 리뷰 관리. 어드민 웹의 "리뷰 관리" 화면이 호출한다.
  *
- * <p>{@code sort}는 현재 {@code LATEST} 하나뿐이라 파라미터로 받지 않고 최신순으로 고정한다.
- * 명세서에 다른 정렬 기준이 추가되면 그때 파라미터로 뺀다.
+ * <p>정렬은 기준({@code sort})과 방향({@code direction})을 따로 받는다. 정렬은 서비스가
+ * Specification으로 걸기 때문에 {@code Pageable}에는 페이지 번호와 크기만 담아 넘긴다.
+ * 두 값 모두 enum 이름 그대로(대문자) 받으며, 그 밖의 값은 400 {@code INVALID_TYPE}이 된다.
  */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/reviews")
 public class ReviewController {
-
-	private static final Sort LATEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
 
 	private final ReviewService reviewService;
 
@@ -52,6 +52,8 @@ public class ReviewController {
 		@RequestParam(name = "periodType", required = false) ReviewPeriodType periodType,
 		@RequestParam(name = "status", required = false) ReviewStatus status,
 		@RequestParam(name = "hasBadWordOnly", defaultValue = "false") boolean hasBadWordOnly,
+		@RequestParam(name = "sort", defaultValue = "LATEST") ReviewSortType sort,
+		@RequestParam(name = "direction", defaultValue = "DESC") Sort.Direction direction,
 		@RequestParam(name = "page", defaultValue = "0") int page,
 		@RequestParam(name = "size", defaultValue = PageRequests.DEFAULT_SIZE_PARAM) int size
 	) {
@@ -61,7 +63,9 @@ public class ReviewController {
 			periodType,
 			status,
 			hasBadWordOnly,
-			PageRequests.of(page, size, LATEST_FIRST)
+			sort,
+			direction,
+			PageRequests.of(page, size, Sort.unsorted())
 		);
 
 		return new ResTemplate<>(HttpStatus.OK, "리뷰 목록 조회 성공", response);

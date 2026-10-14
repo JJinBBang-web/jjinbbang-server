@@ -8,7 +8,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,7 @@ import com.jjinbbang.server.admin.review.dto.response.ReviewMaskPreviewResponse;
 import com.jjinbbang.server.admin.review.repository.ReviewSpecifications;
 import com.jjinbbang.server.admin.review.type.ReviewMaskReason;
 import com.jjinbbang.server.admin.review.type.ReviewPeriodType;
+import com.jjinbbang.server.admin.review.type.ReviewSortType;
 import com.jjinbbang.server.domain.review.entity.Review;
 import com.jjinbbang.server.domain.review.exception.ReviewErrorCode;
 import com.jjinbbang.server.domain.review.repository.ReviewImageRepository;
@@ -47,12 +50,21 @@ public class ReviewService {
 	private final ActionHistoryRepository actionHistoryRepository;
 	private final AdminRepository adminRepository;
 
+	/**
+	 * 리뷰 목록. {@code pageable}에서는 페이지 번호와 크기만 쓰고 정렬은 {@code sortType}·{@code direction}이 정한다.
+	 *
+	 * <p>정렬은 모든 기준을 {@link ReviewSpecifications#orderBy}가 건다. Spring Data는 {@code Pageable}에
+	 * 정렬이 있으면 Specification의 정렬을 덮어쓰므로, 호출하는 쪽이 정렬이 담긴 {@code Pageable}을 넘겨도
+	 * 어긋나지 않도록 여기서 페이지 번호와 크기만 꺼내 정렬 없는 {@code Pageable}을 새로 만든다.
+	 */
 	public ReviewListResponse findAll(
 		String searchKeyword,
 		List<String> schoolNames,
 		ReviewPeriodType periodType,
 		ReviewStatus status,
 		boolean hasBadWordOnly,
+		ReviewSortType sortType,
+		Sort.Direction direction,
 		Pageable pageable
 	) {
 		LocalDateTime createdAfter = periodType == null ? null : periodType.resolveCreatedAfter(LocalDateTime.now());
@@ -63,9 +75,11 @@ public class ReviewService {
 			status,
 			createdAfter,
 			hasBadWordOnly
-		);
+		).and(ReviewSpecifications.orderBy(sortType, direction));
 
-		Page<Review> page = reviewRepository.findAll(spec, pageable);
+		Pageable unsortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+		Page<Review> page = reviewRepository.findAll(spec, unsortedPageable);
 
 		List<Long> reviewIds = page.getContent().stream().map(review -> review.getId()).toList();
 
