@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.jjinbbang.server.admin.administrator.security.AdminOidcUser;
 import com.jjinbbang.server.admin.review.dto.request.ReviewMaskRequest;
+import com.jjinbbang.server.admin.review.dto.request.ReviewUnmaskRequest;
 import com.jjinbbang.server.admin.review.dto.request.ReviewStatusUpdateRequest;
 import com.jjinbbang.server.admin.review.dto.response.ReviewDetailResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
@@ -104,5 +105,16 @@ public class ReviewController {
 	) {
 		reviewService.mask(reviewId, principal.getAdminId(), request.reasons(), request.detailReason());
 		return new ResTemplate<>(HttpStatus.OK, "리뷰 마스킹 성공");
+	}
+
+	@PostMapping("/{reviewId}/unmask")
+	public ResTemplate<Void> unmask(
+		@PathVariable("reviewId") Long reviewId,
+		@RequestBody(required = false) ReviewUnmaskRequest request,
+		@AuthenticationPrincipal AdminOidcUser principal
+	) {
+		String detailReason = request == null ? null : request.detailReason();
+		reviewService.unmask(reviewId, principal.getAdminId(), detailReason);
+		return new ResTemplate<>(HttpStatus.OK, "리뷰 마스킹 해제 성공");
 	}
 }

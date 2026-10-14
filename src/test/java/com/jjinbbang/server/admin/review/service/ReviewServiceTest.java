@@ -435,8 +435,10 @@ class ReviewServiceTest {
 		// when
 		reviewService.mask(1L, 9L, List.of(ReviewMaskReason.BAD_WORD), "직접 입력한 사유");
 
-		// then
+		// then — 원문은 그대로 두고 마스킹본이 따로 저장된다
 		assertThat(review.getContent()).isEqualTo("집주인이 ** 진짜 별로예요");
+		assertThat(review.getOriginalContent()).isEqualTo("집주인이 욕설 진짜 별로예요");
+		assertThat(review.isMasked()).isTrue();
 		assertThat(review.isProhibitedWordFlag()).isTrue();
 
 		then(actionHistoryRepository).should().save(argThat(actionHistory ->
@@ -463,6 +465,103 @@ class ReviewServiceTest {
 		// then
 		then(actionHistoryRepository).should().save(argThat(actionHistory ->
 			actionHistory.getReason().equals("BAD_WORD,PRIVACY_EXPOSURE")
+		));
+	}
+
+	@Test
+	@DisplayName("다시 마스킹하면 이미 마스킹된 본문이 아니라 원문으로 다시 계산한다")
+	void 재마스킹은_원문_기준으로_계산한다() {
+		// given — 처음엔 금칙어가 있어 마스킹됐지만, 이후 사전에서 빠진 상황
+		Review review = review(1L, "집주인이 욕설 진짜 별로예요");
+		Admin admin = BeanUtils.instantiateClass(Admin.class);
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+		given(prohibitedWordRepository.findAllByEnabledTrueAndDeletedAtIsNull())
+			.willReturn(List.of(prohibitedWord("욕설")))
+			.willReturn(List.of());
+		given(adminRepository.getReferenceById(9L)).willReturn(admin);
+
+		// when
+		reviewService.mask(1L, 9L, List.of(ReviewMaskReason.BAD_WORD), null);
+		reviewService.mask(1L, 9L, List.of(ReviewMaskReason.BAD_WORD), null);
+
+		// then — 마스킹본 기준이었다면 "**"가 남았을 것이다
+		assertThat(review.getContent()).isEqualTo("집주인이 욕설 진짜 별로예요");
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 리뷰는 마스킹을 해제하면 404를 던진다")
+	void 존재하지_않는_리뷰_마스킹_해제는_404() {
+		// given
+		given(reviewRepository.findById(999L)).willReturn(Optional.empty());
+
+		// when & then
+		assertThatThrownBy(() -> reviewService.unmask(999L, 9L, null))
+			.isInstanceOf(BusinessException.class)
+			.extracting(exception -> ((BusinessException) exception).getErrorCode())
+			.isEqualTo(ReviewErrorCode.REVIEW_NOT_FOUND);
+
+		then(actionHistoryRepository).should(never()).save(any());
+	}
+
+	@Test
+	@DisplayName("마스킹되지 않은 리뷰는 해제하면 409 를 던지고 조치 이력을 남기지 않는다")
+	void 마스킹되지_않은_리뷰_해제는_409() {
+		// given
+		Review review = review(1L, "평범한 리뷰");
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+
+		// when & then
+		assertThatThrownBy(() -> reviewService.unmask(1L, 9L, null))
+			.isInstanceOf(BusinessException.class)
+			.extracting(exception -> ((BusinessException) exception).getErrorCode())
+			.isEqualTo(ReviewErrorCode.REVIEW_NOT_MASKED);
+
+		then(actionHistoryRepository).should(never()).save(any());
+	}
+
+	@Test
+	@DisplayName("마스킹을 해제하면 원문이 다시 보이고 금칙어 플래그가 내려가며 해제 이력이 남는다")
+	void 마스킹을_해제한다() {
+		// given
+		Review review = review(1L, "집주인이 욕설 진짜 별로예요");
+		review.mask("집주인이 ** 진짜 별로예요");
+		Admin admin = BeanUtils.instantiateClass(Admin.class);
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+		given(adminRepository.getReferenceById(9L)).willReturn(admin);
+
+		// when
+		reviewService.unmask(1L, 9L, "오탐으로 확인");
+
+		// then
+		assertThat(review.isMasked()).isFalse();
+		assertThat(review.getContent()).isEqualTo("집주인이 욕설 진짜 별로예요");
+		assertThat(review.isProhibitedWordFlag()).isFalse();
+
+		then(actionHistoryRepository).should().save(argThat(actionHistory ->
+			actionHistory.getReview() == review
+				&& actionHistory.getAdmin() == admin
+				&& actionHistory.getReason().equals("UNMASK")
+				&& actionHistory.getDetailReason().equals("오탐으로 확인")
+		));
+	}
+
+	@Test
+	@DisplayName("해제 사유는 선택이라 비워도 해제되고, 이력의 상세 사유는 비어 있다")
+	void 해제_사유가_없어도_해제된다() {
+		// given
+		Review review = review(1L, "내용");
+		review.mask("**");
+		Admin admin = BeanUtils.instantiateClass(Admin.class);
+		given(reviewRepository.findById(1L)).willReturn(Optional.of(review));
+		given(adminRepository.getReferenceById(9L)).willReturn(admin);
+
+		// when
+		reviewService.unmask(1L, 9L, null);
+
+		// then
+		assertThat(review.isMasked()).isFalse();
+		then(actionHistoryRepository).should().save(argThat(actionHistory ->
+			actionHistory.getReason().equals("UNMASK") && actionHistory.getDetailReason() == null
 		));
 	}
 
@@ -513,7 +612,7 @@ class ReviewServiceTest {
 		ReflectionTestUtils.setField(review, "id", id);
 		ReflectionTestUtils.setField(review, "user", author());
 		ReflectionTestUtils.setField(review, "status", ReviewStatus.PUBLIC);
-		ReflectionTestUtils.setField(review, "content", content);
+		ReflectionTestUtils.setField(review, "originalContent", content);
 		ReflectionTestUtils.setField(review, "rating", 5);
 		ReflectionTestUtils.setField(review, "createdAt", LocalDateTime.of(2026, 8, 1, 10, 0));
 		return review;

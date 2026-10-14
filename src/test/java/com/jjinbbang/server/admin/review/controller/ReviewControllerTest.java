@@ -441,6 +441,57 @@ class ReviewControllerTest {
 			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_FOUND"));
 	}
 
+	@Test
+	@DisplayName("마스킹을 해제하면 200 이고 data 는 비어 있으며 해제 사유가 그대로 전달된다")
+	void 마스킹_해제는_200() throws Exception {
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/unmask", 1L)
+				.with(admin(9L))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"detailReason\":\"오탐으로 확인\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("리뷰 마스킹 해제 성공"))
+			.andExpect(jsonPath("$.data").value(nullValue()));
+
+		then(reviewService).should().unmask(1L, 9L, "오탐으로 확인");
+	}
+
+	@Test
+	@DisplayName("해제는 요청 본문이 없어도 200 이다 — 해제 사유는 선택이다")
+	void 해제_본문이_없어도_200() throws Exception {
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/unmask", 1L).with(admin(9L)))
+			.andExpect(status().isOk());
+
+		then(reviewService).should().unmask(1L, 9L, null);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 리뷰를 해제하면 404 REVIEW_NOT_FOUND")
+	void 존재하지_않는_리뷰_해제는_404() throws Exception {
+		// given
+		willThrow(ReviewErrorCode.REVIEW_NOT_FOUND.exception())
+			.given(reviewService).unmask(999L, 9L, null);
+
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/unmask", 999L).with(admin(9L)))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_FOUND"));
+	}
+
+	@Test
+	@DisplayName("마스킹되지 않은 리뷰를 해제하면 409 REVIEW_NOT_MASKED")
+	void 마스킹되지_않은_리뷰_해제는_409() throws Exception {
+		// given
+		willThrow(ReviewErrorCode.REVIEW_NOT_MASKED.exception())
+			.given(reviewService).unmask(1L, 9L, null);
+
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/unmask", 1L).with(admin(9L)))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_MASKED"));
+	}
+
 	/** {@code standaloneSetup}은 시큐리티 필터체인이 없어 {@code SecurityContextHolder}를 직접 채운다. */
 	private RequestPostProcessor admin(Long adminId) {
 		return request -> {

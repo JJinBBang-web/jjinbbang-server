@@ -43,6 +43,9 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ReviewService {
 
+	/** 마스킹 해제 조치를 조치 이력에 남길 때 {@code action_history.reason}에 쓰는 값. 상세 응답의 {@code actionNames}로 나간다. */
+	private static final String UNMASK_ACTION = "UNMASK";
+
 	private final ReviewRepository reviewRepository;
 	private final ReviewImageRepository reviewImageRepository;
 	private final ReportRepository reportRepository;
@@ -128,7 +131,7 @@ public class ReviewService {
 		Review review = reviewRepository.findById(reviewId)
 			.orElseThrow(ReviewErrorCode.REVIEW_NOT_FOUND::exception);
 
-		return ReviewMaskPreviewResponse.from(maskProhibitedWords(review.getContent()));
+		return ReviewMaskPreviewResponse.from(maskProhibitedWords(review.getOriginalContent()));
 	}
 
 	/**
@@ -142,11 +145,34 @@ public class ReviewService {
 		Review review = reviewRepository.findById(reviewId)
 			.orElseThrow(ReviewErrorCode.REVIEW_NOT_FOUND::exception);
 
-		review.mask(maskProhibitedWords(review.getContent()));
+		review.mask(maskProhibitedWords(review.getOriginalContent()));
 
 		Admin admin = adminRepository.getReferenceById(adminId);
 		actionHistoryRepository.save(
 			ActionHistory.forReview(review, admin, ReviewMaskReason.join(reasons), detailReason)
+		);
+	}
+
+	/**
+	 * 마스킹을 되돌린다. 마스킹본을 비워 원문이 다시 보이게 하고, 해제한 관리자를 조치 이력에 남긴다.
+	 *
+	 * <p>마스킹된 적 없는 리뷰는 되돌릴 것이 없으므로 409다. 이미 {@code content}가 덮어써진 과거 마스킹 리뷰도
+	 * 마스킹본({@code masked_content})이 없어 여기에 해당한다.
+	 */
+	@Transactional
+	public void unmask(Long reviewId, Long adminId, String detailReason) {
+		Review review = reviewRepository.findById(reviewId)
+			.orElseThrow(ReviewErrorCode.REVIEW_NOT_FOUND::exception);
+
+		if (!review.isMasked()) {
+			throw ReviewErrorCode.REVIEW_NOT_MASKED.exception();
+		}
+
+		review.unmask();
+
+		Admin admin = adminRepository.getReferenceById(adminId);
+		actionHistoryRepository.save(
+			ActionHistory.forReview(review, admin, UNMASK_ACTION, detailReason)
 		);
 	}
 

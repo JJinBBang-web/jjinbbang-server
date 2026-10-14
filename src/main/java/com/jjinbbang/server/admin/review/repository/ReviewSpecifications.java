@@ -74,7 +74,7 @@ public final class ReviewSpecifications {
 			List<Predicate> predicates = new ArrayList<>();
 
 			if (keyword != null && !keyword.isBlank()) {
-				predicates.add(cb.like(root.get(Review_.content), "%" + keyword + "%"));
+				predicates.add(cb.like(root.get(Review_.originalContent), "%" + keyword + "%"));
 			}
 			if (needsUniversityJoin) {
 				predicates.add(((Join<User, University>) universityJoin).get(University_.name).in(schoolNames));
