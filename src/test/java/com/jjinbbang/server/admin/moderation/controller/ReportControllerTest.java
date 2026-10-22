@@ -24,8 +24,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.jjinbbang.server.admin.moderation.dto.response.ReportDismissResponse;
-import com.jjinbbang.server.admin.moderation.dto.response.ReportListResponse;
-import com.jjinbbang.server.admin.moderation.dto.response.ReportResponse;
+import com.jjinbbang.server.admin.moderation.dto.response.ReportReviewListResponse;
+import com.jjinbbang.server.admin.moderation.dto.response.ReportReviewResponse;
+import com.jjinbbang.server.admin.moderation.dto.response.SubReportResponse;
 import com.jjinbbang.server.admin.moderation.exception.ModerationErrorCode;
 import com.jjinbbang.server.admin.moderation.service.ReportService;
 import com.jjinbbang.server.admin.moderation.type.ReportStatus;
@@ -52,7 +53,7 @@ class ReportControllerTest {
 	}
 
 	@Test
-	@DisplayName("목록 조회는 reportList 와 pageInfo 로 나간다")
+	@DisplayName("목록 조회는 리뷰 단위 reportReviewList 와 pageInfo 로 나가고, 신고는 subReports 에 담긴다")
 	void 목록_응답_형태() throws Exception {
 		// given
 		given(reportService.findAll(any(), any())).willReturn(listResponse());
@@ -62,24 +63,30 @@ class ReportControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.code").value(200))
 			.andExpect(jsonPath("$.message").value("신고 목록 조회 성공"))
-			.andExpect(jsonPath("$.data.reportList[0].reportId").value(1))
-			.andExpect(jsonPath("$.data.reportList[0].reviewContent").value("리뷰 본문"))
-			.andExpect(jsonPath("$.data.reportList[0].reporterUniversity").value("찐빵대학교"))
-			.andExpect(jsonPath("$.data.reportList[0].status").value("PENDING"))
+			.andExpect(jsonPath("$.data.reportReviewList[0].reviewId").value(12))
+			.andExpect(jsonPath("$.data.reportReviewList[0].schoolName").value("부산대학교"))
+			.andExpect(jsonPath("$.data.reportReviewList[0].content").value("리뷰 본문"))
+			.andExpect(jsonPath("$.data.reportReviewList[0].totalReportCount").value(1))
+			.andExpect(jsonPath("$.data.reportReviewList[0].subReports[0].reportId").value(1))
+			.andExpect(jsonPath("$.data.reportReviewList[0].subReports[0].reporterId").value(5))
+			.andExpect(jsonPath("$.data.reportReviewList[0].subReports[0].reason").value("욕설/비방"))
+			.andExpect(jsonPath("$.data.reportReviewList[0].subReports[0].status").value("PENDING"))
+			.andExpect(jsonPath("$.data.reportReviewList[0].subReports[0].reportedAt").value("2026-08-01T10:00:00"))
 			.andExpect(jsonPath("$.data.pageInfo.totalElements").value(1));
 	}
 
 	@Test
-	@DisplayName("리뷰에 제목 컬럼이 없으므로 reviewTitle 은 응답에 없다")
-	void 응답에_reviewTitle_은_없다() throws Exception {
+	@DisplayName("예전 신고 단위 필드는 응답에 남지 않는다")
+	void 예전_신고_단위_필드는_없다() throws Exception {
 		// given
 		given(reportService.findAll(any(), any())).willReturn(listResponse());
 
 		// when & then
 		mockMvc.perform(get("/api/admin/reports"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.reportList[0].reviewTitle").doesNotExist())
-			.andExpect(jsonPath("$.data.reportList[0].updatedAt").doesNotExist());
+			.andExpect(jsonPath("$.data.reportList").doesNotExist())
+			.andExpect(jsonPath("$.data.reportReviewList[0].subReports[0].reviewId").doesNotExist())
+			.andExpect(jsonPath("$.data.reportReviewList[0].subReports[0].createdAt").doesNotExist());
 	}
 
 	@Test
@@ -166,12 +173,12 @@ class ReportControllerTest {
 			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다. (reportId)"));
 	}
 
-	private ReportListResponse listResponse() {
-		return new ReportListResponse(
-			List.of(new ReportResponse(
-				1L, 12L, "리뷰 본문", 5L, "찐빵대학교", "욕설/비방",
-				ReportStatus.PENDING, LocalDateTime.of(2026, 8, 1, 10, 0)
-			)),
+	private ReportReviewListResponse listResponse() {
+		SubReportResponse subReport = new SubReportResponse(
+			1L, 5L, "욕설/비방", ReportStatus.PENDING, LocalDateTime.of(2026, 8, 1, 10, 0)
+		);
+		return new ReportReviewListResponse(
+			List.of(new ReportReviewResponse(12L, "부산대학교", "리뷰 본문", 1, List.of(subReport))),
 			new PageInfo(0, 20, 1, 1)
 		);
 	}
