@@ -16,7 +16,7 @@ import com.jjinbbang.server.domain.user.entity.User;
  * 리뷰 상세 한 건.
  *
  * <p>스키마 때문에 명세서와 달라진 곳이 하나 있다 — {@code reviews}에 제목 컬럼이 없어
- * {@link ReviewResponse}·{@code ReportResponse}와 같은 이유로 title은 내려주지 않는다.
+ * {@link ReviewResponse}·{@code ReportReviewResponse}와 같은 이유로 title은 내려주지 않는다.
  *
  * <p>{@code historyList}는 {@link ActionHistory}를 내려주는데, 이 엔티티엔 {@code actionNames}에
  * 해당하는 컬럼이 없다. 그래서 짧은 분류값인 {@code reason} 컬럼을 {@code actionNames}에,

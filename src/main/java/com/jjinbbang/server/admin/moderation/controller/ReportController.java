@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jjinbbang.server.admin.moderation.dto.response.ReportDismissResponse;
-import com.jjinbbang.server.admin.moderation.dto.response.ReportListResponse;
+import com.jjinbbang.server.admin.moderation.dto.response.ReportReviewListResponse;
 import com.jjinbbang.server.admin.moderation.service.ReportService;
 import com.jjinbbang.server.admin.moderation.type.ReportStatus;
 import com.jjinbbang.server.global.paging.PageRequests;
@@ -29,17 +29,19 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/admin/reports")
 public class ReportController {
 
-	private static final Sort LATEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
-
 	private final ReportService reportService;
 
+	/**
+	 * 신고된 리뷰 단위로 페이징한다 — {@code size}는 리뷰 개수다. 리뷰 순서는 가장 최근 신고일 순으로
+	 * 서비스가 정하므로 여기서 정렬을 넘기지 않는다.
+	 */
 	@GetMapping
-	public ResTemplate<ReportListResponse> findAll(
+	public ResTemplate<ReportReviewListResponse> findAll(
 		@RequestParam(name = "status", required = false) ReportStatus status,
 		@RequestParam(name = "page", defaultValue = "0") int page,
 		@RequestParam(name = "size", defaultValue = PageRequests.DEFAULT_SIZE_PARAM) int size
 	) {
-		ReportListResponse response = reportService.findAll(status, PageRequests.of(page, size, LATEST_FIRST));
+		ReportReviewListResponse response = reportService.findAll(status, PageRequests.of(page, size, Sort.unsorted()));
 
 		return new ResTemplate<>(HttpStatus.OK, "신고 목록 조회 성공", response);
 	}
