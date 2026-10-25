@@ -8,7 +8,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,7 @@ import com.jjinbbang.server.admin.review.dto.response.ReviewMaskPreviewResponse;
 import com.jjinbbang.server.admin.review.repository.ReviewSpecifications;
 import com.jjinbbang.server.admin.review.type.ReviewMaskReason;
 import com.jjinbbang.server.admin.review.type.ReviewPeriodType;
+import com.jjinbbang.server.admin.review.type.ReviewSortType;
 import com.jjinbbang.server.domain.review.entity.Review;
 import com.jjinbbang.server.domain.review.exception.ReviewErrorCode;
 import com.jjinbbang.server.domain.review.repository.ReviewImageRepository;
@@ -40,6 +43,9 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ReviewService {
 
+	/** 마스킹 해제 조치를 조치 이력에 남길 때 {@code action_history.reason}에 쓰는 값. 상세 응답의 {@code actionNames}로 나간다. */
+	private static final String UNMASK_ACTION = "UNMASK";
+
 	private final ReviewRepository reviewRepository;
 	private final ReviewImageRepository reviewImageRepository;
 	private final ReportRepository reportRepository;
@@ -47,12 +53,21 @@ public class ReviewService {
 	private final ActionHistoryRepository actionHistoryRepository;
 	private final AdminRepository adminRepository;
 
+	/**
+	 * 리뷰 목록. {@code pageable}에서는 페이지 번호와 크기만 쓰고 정렬은 {@code sortType}·{@code direction}이 정한다.
+	 *
+	 * <p>정렬은 모든 기준을 {@link ReviewSpecifications#orderBy}가 건다. Spring Data는 {@code Pageable}에
+	 * 정렬이 있으면 Specification의 정렬을 덮어쓰므로, 호출하는 쪽이 정렬이 담긴 {@code Pageable}을 넘겨도
+	 * 어긋나지 않도록 여기서 페이지 번호와 크기만 꺼내 정렬 없는 {@code Pageable}을 새로 만든다.
+	 */
 	public ReviewListResponse findAll(
 		String searchKeyword,
 		List<String> schoolNames,
 		ReviewPeriodType periodType,
 		ReviewStatus status,
 		boolean hasBadWordOnly,
+		ReviewSortType sortType,
+		Sort.Direction direction,
 		Pageable pageable
 	) {
 		LocalDateTime createdAfter = periodType == null ? null : periodType.resolveCreatedAfter(LocalDateTime.now());
@@ -63,9 +78,11 @@ public class ReviewService {
 			status,
 			createdAfter,
 			hasBadWordOnly
-		);
+		).and(ReviewSpecifications.orderBy(sortType, direction));
 
-		Page<Review> page = reviewRepository.findAll(spec, pageable);
+		Pageable unsortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+		Page<Review> page = reviewRepository.findAll(spec, unsortedPageable);
 
 		List<Long> reviewIds = page.getContent().stream().map(review -> review.getId()).toList();
 
@@ -114,7 +131,7 @@ public class ReviewService {
 		Review review = reviewRepository.findById(reviewId)
 			.orElseThrow(ReviewErrorCode.REVIEW_NOT_FOUND::exception);
 
-		return ReviewMaskPreviewResponse.from(maskProhibitedWords(review.getContent()));
+		return ReviewMaskPreviewResponse.from(maskProhibitedWords(review.getOriginalContent()));
 	}
 
 	/**
@@ -128,11 +145,34 @@ public class ReviewService {
 		Review review = reviewRepository.findById(reviewId)
 			.orElseThrow(ReviewErrorCode.REVIEW_NOT_FOUND::exception);
 
-		review.mask(maskProhibitedWords(review.getContent()));
+		review.mask(maskProhibitedWords(review.getOriginalContent()));
 
 		Admin admin = adminRepository.getReferenceById(adminId);
 		actionHistoryRepository.save(
 			ActionHistory.forReview(review, admin, ReviewMaskReason.join(reasons), detailReason)
+		);
+	}
+
+	/**
+	 * 마스킹을 되돌린다. 마스킹본을 비워 원문이 다시 보이게 하고, 해제한 관리자를 조치 이력에 남긴다.
+	 *
+	 * <p>마스킹된 적 없는 리뷰는 되돌릴 것이 없으므로 409다. 이미 {@code content}가 덮어써진 과거 마스킹 리뷰도
+	 * 마스킹본({@code masked_content})이 없어 여기에 해당한다.
+	 */
+	@Transactional
+	public void unmask(Long reviewId, Long adminId, String detailReason) {
+		Review review = reviewRepository.findById(reviewId)
+			.orElseThrow(ReviewErrorCode.REVIEW_NOT_FOUND::exception);
+
+		if (!review.isMasked()) {
+			throw ReviewErrorCode.REVIEW_NOT_MASKED.exception();
+		}
+
+		review.unmask();
+
+		Admin admin = adminRepository.getReferenceById(adminId);
+		actionHistoryRepository.save(
+			ActionHistory.forReview(review, admin, UNMASK_ACTION, detailReason)
 		);
 	}
 

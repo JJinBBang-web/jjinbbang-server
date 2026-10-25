@@ -163,7 +163,7 @@ class ReportServiceTest {
 	private Report report(Long id, ReportStatus status, User reporter) {
 		Review review = BeanUtils.instantiateClass(Review.class);
 		ReflectionTestUtils.setField(review, "id", 12L);
-		ReflectionTestUtils.setField(review, "content", "리뷰 본문");
+		ReflectionTestUtils.setField(review, "originalContent", "리뷰 본문");
 
 		Report report = BeanUtils.instantiateClass(Report.class);
 		ReflectionTestUtils.setField(report, "id", id);

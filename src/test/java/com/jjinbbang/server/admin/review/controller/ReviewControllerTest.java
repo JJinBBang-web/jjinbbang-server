@@ -2,6 +2,7 @@ package com.jjinbbang.server.admin.review.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.hamcrest.Matchers.nullValue;
@@ -28,6 +29,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,6 +47,7 @@ import com.jjinbbang.server.admin.review.dto.response.ReviewResponse;
 import com.jjinbbang.server.admin.review.service.ReviewService;
 import com.jjinbbang.server.admin.review.type.ReviewMaskReason;
 import com.jjinbbang.server.admin.review.type.ReviewPeriodType;
+import com.jjinbbang.server.admin.review.type.ReviewSortType;
 import com.jjinbbang.server.domain.review.exception.ReviewErrorCode;
 import com.jjinbbang.server.domain.review.type.ReviewStatus;
 import com.jjinbbang.server.global.error.GlobalExceptionHandler;
@@ -79,7 +82,7 @@ class ReviewControllerTest {
 	@DisplayName("목록 조회는 reviewList 와 pageInfo 로 나간다")
 	void 목록_응답_형태() throws Exception {
 		// given
-		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any())).willReturn(listResponse());
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
 
 		// when & then
 		mockMvc.perform(get("/api/admin/reviews"))
@@ -96,7 +99,7 @@ class ReviewControllerTest {
 	@DisplayName("명세서에 있던 title 은 응답에 없다")
 	void 응답에_title은_없다() throws Exception {
 		// given
-		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any())).willReturn(listResponse());
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
 
 		// when & then
 		mockMvc.perform(get("/api/admin/reviews"))
@@ -108,14 +111,14 @@ class ReviewControllerTest {
 	@DisplayName("파라미터를 하나도 안 주면 기본값(빈 필터·0페이지·20건·최신순)으로 조회한다")
 	void 파라미터가_없으면_기본값으로_조회한다() throws Exception {
 		// given
-		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any())).willReturn(listResponse());
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
 
 		// when
 		mockMvc.perform(get("/api/admin/reviews")).andExpect(status().isOk());
 
 		// then
 		then(reviewService).should().findAll(
-			isNull(), isNull(), isNull(), isNull(), eq(false), any(Pageable.class)
+			isNull(), isNull(), isNull(), isNull(), eq(false), eq(ReviewSortType.LATEST), eq(Sort.Direction.DESC), any(Pageable.class)
 		);
 	}
 
@@ -123,7 +126,7 @@ class ReviewControllerTest {
 	@DisplayName("schoolNames 를 여러 번 주면 목록으로 바인딩된다")
 	void schoolNames_는_목록으로_바인딩된다() throws Exception {
 		// given
-		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any())).willReturn(listResponse());
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
 
 		// when
 		mockMvc.perform(get("/api/admin/reviews")
@@ -132,7 +135,7 @@ class ReviewControllerTest {
 
 		// then
 		then(reviewService).should().findAll(
-			isNull(), eq(List.of("경상국립대학교", "부산대학교")), isNull(), isNull(), eq(false), any(Pageable.class)
+			isNull(), eq(List.of("경상국립대학교", "부산대학교")), isNull(), isNull(), eq(false), eq(ReviewSortType.LATEST), eq(Sort.Direction.DESC), any(Pageable.class)
 		);
 	}
 
@@ -155,10 +158,51 @@ class ReviewControllerTest {
 	}
 
 	@Test
+	@DisplayName("sort 와 direction 은 그대로 서비스에 전달되고, Pageable 에는 정렬을 싣지 않는다")
+	void sort와_direction이_그대로_전달된다() throws Exception {
+		// given
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
+
+		// when
+		mockMvc.perform(get("/api/admin/reviews")
+			.param("sort", "REPORT")
+			.param("direction", "ASC")
+			.param("page", "2")
+			.param("size", "10"))
+			.andExpect(status().isOk());
+
+		// then
+		then(reviewService).should().findAll(
+			isNull(), isNull(), isNull(), isNull(), eq(false), eq(ReviewSortType.REPORT), eq(Sort.Direction.ASC),
+			argThat((Pageable pageable) -> pageable.getPageNumber() == 2
+				&& pageable.getPageSize() == 10
+				&& pageable.getSort().isUnsorted())
+		);
+	}
+
+	@Test
+	@DisplayName("sort 가 enum 밖의 값이면 400 INVALID_TYPE — 프론트가 쓰던 RATING_HIGH 도 여기에 해당한다")
+	void 알_수_없는_sort는_400() throws Exception {
+		mockMvc.perform(get("/api/admin/reviews").param("sort", "RATING_HIGH"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errorCode").value("INVALID_TYPE"))
+			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다. (sort)"));
+	}
+
+	@Test
+	@DisplayName("direction 이 ASC·DESC 밖의 값이면 400 INVALID_TYPE")
+	void 알_수_없는_direction은_400() throws Exception {
+		mockMvc.perform(get("/api/admin/reviews").param("direction", "UP"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errorCode").value("INVALID_TYPE"))
+			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다. (direction)"));
+	}
+
+	@Test
 	@DisplayName("hasBadWordOnly=true 를 주면 그대로 서비스에 전달된다")
 	void hasBadWordOnly가_그대로_전달된다() throws Exception {
 		// given
-		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any())).willReturn(listResponse());
+		given(reviewService.findAll(any(), any(), any(), any(), anyBoolean(), any(), any(), any())).willReturn(listResponse());
 
 		// when
 		mockMvc.perform(get("/api/admin/reviews")
@@ -169,7 +213,7 @@ class ReviewControllerTest {
 
 		// then
 		then(reviewService).should().findAll(
-			isNull(), isNull(), eq(ReviewPeriodType.LAST_7_DAYS), eq(ReviewStatus.PUBLIC), eq(true), any(Pageable.class)
+			isNull(), isNull(), eq(ReviewPeriodType.LAST_7_DAYS), eq(ReviewStatus.PUBLIC), eq(true), eq(ReviewSortType.LATEST), eq(Sort.Direction.DESC), any(Pageable.class)
 		);
 	}
 
@@ -395,6 +439,57 @@ class ReviewControllerTest {
 				.content("{\"reasons\":[\"BAD_WORD\"]}"))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_FOUND"));
+	}
+
+	@Test
+	@DisplayName("마스킹을 해제하면 200 이고 data 는 비어 있으며 해제 사유가 그대로 전달된다")
+	void 마스킹_해제는_200() throws Exception {
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/unmask", 1L)
+				.with(admin(9L))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"detailReason\":\"오탐으로 확인\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("리뷰 마스킹 해제 성공"))
+			.andExpect(jsonPath("$.data").value(nullValue()));
+
+		then(reviewService).should().unmask(1L, 9L, "오탐으로 확인");
+	}
+
+	@Test
+	@DisplayName("해제는 요청 본문이 없어도 200 이다 — 해제 사유는 선택이다")
+	void 해제_본문이_없어도_200() throws Exception {
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/unmask", 1L).with(admin(9L)))
+			.andExpect(status().isOk());
+
+		then(reviewService).should().unmask(1L, 9L, null);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 리뷰를 해제하면 404 REVIEW_NOT_FOUND")
+	void 존재하지_않는_리뷰_해제는_404() throws Exception {
+		// given
+		willThrow(ReviewErrorCode.REVIEW_NOT_FOUND.exception())
+			.given(reviewService).unmask(999L, 9L, null);
+
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/unmask", 999L).with(admin(9L)))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_FOUND"));
+	}
+
+	@Test
+	@DisplayName("마스킹되지 않은 리뷰를 해제하면 409 REVIEW_NOT_MASKED")
+	void 마스킹되지_않은_리뷰_해제는_409() throws Exception {
+		// given
+		willThrow(ReviewErrorCode.REVIEW_NOT_MASKED.exception())
+			.given(reviewService).unmask(1L, 9L, null);
+
+		// when & then
+		mockMvc.perform(post("/api/admin/reviews/{reviewId}/unmask", 1L).with(admin(9L)))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.errorCode").value("REVIEW_NOT_MASKED"));
 	}
 
 	/** {@code standaloneSetup}은 시큐리티 필터체인이 없어 {@code SecurityContextHolder}를 직접 채운다. */
