@@ -1,5 +1,6 @@
 package com.jjinbbang.server.admin.moderation.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -24,4 +25,7 @@ public interface ProhibitedWordRepository extends JpaRepository<ProhibitedWord, 
 	Page<ProhibitedWord> findAllByDeletedAtIsNull(Pageable pageable);
 
 	Page<ProhibitedWord> findAllByEnabledAndDeletedAtIsNull(Boolean enabled, Pageable pageable);
+
+	/** 리뷰 본문 마스킹은 활성 금칙어만 페이징 없이 한 번에 대조한다. */
+	List<ProhibitedWord> findAllByEnabledTrueAndDeletedAtIsNull();
 }

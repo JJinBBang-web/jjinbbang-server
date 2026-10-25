@@ -1,7 +1,7 @@
 package com.jjinbbang.server.admin.administrator.entity;
 
-import com.jjinbbang.server.admin.moderation.entity.ProhibitedWordFlag;
 import com.jjinbbang.server.admin.moderation.entity.Report;
+import com.jjinbbang.server.domain.review.entity.Review;
 import com.jjinbbang.server.global.persistence.CreatedAtEntity;
 
 import jakarta.persistence.Column;
@@ -29,8 +29,8 @@ public class ActionHistory extends CreatedAtEntity {
 	private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "prohibited_word_flag_id")
-	private ProhibitedWordFlag prohibitedWordFlag;
+	@JoinColumn(name = "review_id")
+	private Review review;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "report_id")
@@ -40,10 +40,20 @@ public class ActionHistory extends CreatedAtEntity {
 	@JoinColumn(name = "admin_id", nullable = false)
 	private Admin admin;
 
-	@Column(nullable = false, length = 50)
+	@Column(nullable = false, length = 255)
 	private String reason;
 
 	@Lob
 	@Column(name = "detail_reason", columnDefinition = "TEXT")
 	private String detailReason;
+
+	/** 리뷰에 대한 조치(마스킹 등)를 기록한다. {@code report}는 이 조치와 무관하므로 비워 둔다. */
+	public static ActionHistory forReview(Review review, Admin admin, String reason, String detailReason) {
+		ActionHistory actionHistory = new ActionHistory();
+		actionHistory.review = review;
+		actionHistory.admin = admin;
+		actionHistory.reason = reason;
+		actionHistory.detailReason = detailReason;
+		return actionHistory;
+	}
 }
