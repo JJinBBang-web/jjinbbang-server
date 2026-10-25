@@ -244,7 +244,7 @@ class ReportServiceTest {
 		Review review = BeanUtils.instantiateClass(Review.class);
 		ReflectionTestUtils.setField(review, "id", reviewId);
 		ReflectionTestUtils.setField(review, "user", writer);
-		ReflectionTestUtils.setField(review, "content", "리뷰 본문");
+		ReflectionTestUtils.setField(review, "originalContent", "리뷰 본문");
 
 		Report report = BeanUtils.instantiateClass(Report.class);
 		ReflectionTestUtils.setField(report, "id", id);
