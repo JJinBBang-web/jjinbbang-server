@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Container;
@@ -183,7 +182,7 @@ class ReviewMaskUnmaskTest {
 	private ReviewListResponse list(String keyword) {
 		return reviewService.findAll(
 			keyword, null, null, null, false,
-			ReviewSortType.LATEST, Sort.Direction.DESC, PageRequest.of(0, 10)
+			ReviewSortType.LATEST, PageRequest.of(0, 10)
 		);
 	}
 

@@ -1,6 +1,9 @@
 package com.jjinbbang.server.admin.review.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -11,24 +14,29 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import com.jjinbbang.server.admin.review.controller.ReviewController;
 import com.jjinbbang.server.admin.review.dto.response.ReviewListResponse;
 import com.jjinbbang.server.admin.review.dto.response.ReviewResponse;
 import com.jjinbbang.server.admin.review.type.ReviewSortType;
+import com.jjinbbang.server.global.error.GlobalExceptionHandler;
 
 /**
- * 목록 정렬은 {@code Sort}와 Criteria 서브쿼리({@code ORDER BY}) 조합이라 Mockito로는 실제 순서를 검증할 수 없다.
+ * 목록 정렬은 Criteria 서브쿼리({@code ORDER BY})를 사용하므로 Mockito로는 실제 순서를 검증할 수 없다.
  * 서비스부터 MySQL까지 그대로 통과시켜서, 신고 건수 정렬이 count 쿼리·페이징과 함께 동작하는지까지 확인한다.
  */
 @SpringBootTest
@@ -65,6 +73,43 @@ class ReviewServiceSortTest {
 		busanUniversityId = insertUniversity("부산대학교");
 	}
 
+	@ParameterizedTest
+	@CsvSource({
+		"LATEST,최신,중간,오래됨",
+		"REPORT,중간,오래됨,최신",
+		"RATING_HIGH,오래됨,최신,중간",
+		"RATING_LOW,중간,최신,오래됨"
+	})
+	@DisplayName("프론트의 네 가지 정렬 요청은 MySQL 결과 순서와 페이지를 결정한다")
+	void 프론트_요청부터_페이지_응답까지_검증한다(String sort, String first, String second, String third) throws Exception {
+		Long userId = insertUser(seoulUniversityId);
+		LocalDateTime now = LocalDateTime.now();
+		Long older = insertReview(userId, "오래됨", 5, now.minusDays(2));
+		Long middle = insertReview(userId, "중간", 1, now.minusDays(1));
+		insertReview(userId, "최신", 3, now);
+		insertReport(older, "PENDING");
+		for (int i = 0; i < 3; i++) {
+			insertReport(middle, "PENDING");
+		}
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(reviewService))
+			.setControllerAdvice(new GlobalExceptionHandler()).build();
+
+		mockMvc.perform(get("/api/admin/reviews")
+			.param("hasBadWordOnly", "false").param("sort", sort).param("page", "0").param("size", "2"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.reviewList.length()").value(2))
+			.andExpect(jsonPath("$.data.reviewList[0].content").value(first))
+			.andExpect(jsonPath("$.data.reviewList[1].content").value(second))
+			.andExpect(jsonPath("$.data.pageInfo.totalElements").value(3))
+			.andExpect(jsonPath("$.data.pageInfo.totalPages").value(2));
+		mockMvc.perform(get("/api/admin/reviews")
+			.param("hasBadWordOnly", "false").param("sort", sort).param("page", "1").param("size", "2"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.reviewList.length()").value(1))
+			.andExpect(jsonPath("$.data.reviewList[0].content").value(third))
+			.andExpect(jsonPath("$.data.pageInfo.totalElements").value(3));
+	}
+
 	@Test
 	@DisplayName("별점순은 별점을 방향대로 정렬한다")
 	void 별점순으로_정렬한다() {
@@ -75,8 +120,8 @@ class ReviewServiceSortTest {
 		insertReview(userId, "별점 1", 1, LocalDateTime.now());
 
 		// when & then
-		assertThat(contents(findAll(ReviewSortType.RATING, Sort.Direction.DESC))).containsExactly("별점 5", "별점 3", "별점 1");
-		assertThat(contents(findAll(ReviewSortType.RATING, Sort.Direction.ASC))).containsExactly("별점 1", "별점 3", "별점 5");
+		assertThat(contents(findAll(ReviewSortType.RATING_HIGH))).containsExactly("별점 5", "별점 3", "별점 1");
+		assertThat(contents(findAll(ReviewSortType.RATING_LOW))).containsExactly("별점 1", "별점 3", "별점 5");
 	}
 
 	@Test
@@ -89,14 +134,14 @@ class ReviewServiceSortTest {
 		insertReview(userId, "중간 4점", 4, LocalDateTime.now().minusDays(1));
 
 		// when & then
-		assertThat(contents(findAll(ReviewSortType.RATING, Sort.Direction.DESC)))
+		assertThat(contents(findAll(ReviewSortType.RATING_HIGH)))
 			.containsExactly("최신 4점", "중간 4점", "오래된 4점");
-		assertThat(contents(findAll(ReviewSortType.RATING, Sort.Direction.ASC)))
+		assertThat(contents(findAll(ReviewSortType.RATING_LOW)))
 			.containsExactly("최신 4점", "중간 4점", "오래된 4점");
 	}
 
 	@Test
-	@DisplayName("최신순은 작성일을 방향대로 정렬한다")
+	@DisplayName("최신순은 작성일 내림차순으로 정렬한다")
 	void 최신순으로_정렬한다() {
 		// given
 		Long userId = insertUser(seoulUniversityId);
@@ -105,12 +150,11 @@ class ReviewServiceSortTest {
 		insertReview(userId, "오래됨", 3, LocalDateTime.now().minusDays(2));
 
 		// when & then
-		assertThat(contents(findAll(ReviewSortType.LATEST, Sort.Direction.DESC))).containsExactly("최신", "중간", "오래됨");
-		assertThat(contents(findAll(ReviewSortType.LATEST, Sort.Direction.ASC))).containsExactly("오래됨", "중간", "최신");
+		assertThat(contents(findAll(ReviewSortType.LATEST))).containsExactly("최신", "중간", "오래됨");
 	}
 
 	@Test
-	@DisplayName("신고순은 신고 건수를 방향대로 정렬하고, 응답의 reportCount 와 같은 값을 기준으로 한다")
+	@DisplayName("신고순은 신고 건수 내림차순으로 정렬하고, 응답의 reportCount 와 같은 값을 기준으로 한다")
 	void 신고순으로_정렬한다() {
 		// given
 		Long userId = insertUser(seoulUniversityId);
@@ -124,18 +168,15 @@ class ReviewServiceSortTest {
 		insertReport(one, "REJECT");
 
 		// when
-		ReviewListResponse descending = findAll(ReviewSortType.REPORT, Sort.Direction.DESC);
-		ReviewListResponse ascending = findAll(ReviewSortType.REPORT, Sort.Direction.ASC);
+		ReviewListResponse descending = findAll(ReviewSortType.REPORT);
 
 		// then
 		assertThat(contents(descending)).containsExactly("신고 3건", "신고 1건", "신고 없음");
 		assertThat(reportCounts(descending)).containsExactly(3L, 1L, 0L);
-		assertThat(contents(ascending)).containsExactly("신고 없음", "신고 1건", "신고 3건");
-		assertThat(reportCounts(ascending)).containsExactly(0L, 1L, 3L);
 	}
 
 	@Test
-	@DisplayName("신고 건수가 같으면 방향과 무관하게 최신 리뷰가 먼저 나온다")
+	@DisplayName("신고 건수가 같으면 최신 리뷰가 먼저 나온다")
 	void 신고_동률은_최신순이다() {
 		// given
 		Long userId = insertUser(seoulUniversityId);
@@ -145,9 +186,7 @@ class ReviewServiceSortTest {
 		insertReport(newer, "PENDING");
 
 		// when & then
-		assertThat(contents(findAll(ReviewSortType.REPORT, Sort.Direction.DESC)))
-			.containsExactly("최신 신고 1건", "오래된 신고 1건");
-		assertThat(contents(findAll(ReviewSortType.REPORT, Sort.Direction.ASC)))
+		assertThat(contents(findAll(ReviewSortType.REPORT)))
 			.containsExactly("최신 신고 1건", "오래된 신고 1건");
 	}
 
@@ -166,10 +205,10 @@ class ReviewServiceSortTest {
 
 		// when
 		List<String> collected = new ArrayList<>();
-		ReviewListResponse first = findAll(ReviewSortType.REPORT, Sort.Direction.DESC, 0, 3);
+		ReviewListResponse first = findAll(ReviewSortType.REPORT, 0, 3);
 		collected.addAll(contents(first));
-		collected.addAll(contents(findAll(ReviewSortType.REPORT, Sort.Direction.DESC, 1, 3)));
-		collected.addAll(contents(findAll(ReviewSortType.REPORT, Sort.Direction.DESC, 2, 3)));
+		collected.addAll(contents(findAll(ReviewSortType.REPORT, 1, 3)));
+		collected.addAll(contents(findAll(ReviewSortType.REPORT, 2, 3)));
 
 		// then — 신고 많은 순, 동률은 최신(minutes 가 작은) 순
 		assertThat(first.pageInfo().totalElements()).isEqualTo(7);
@@ -196,7 +235,7 @@ class ReviewServiceSortTest {
 		// when
 		ReviewListResponse response = reviewService.findAll(
 			null, List.of("부산대학교"), null, null, false,
-			ReviewSortType.REPORT, Sort.Direction.DESC, PageRequest.of(0, 10)
+			ReviewSortType.REPORT, PageRequest.of(0, 10)
 		);
 
 		// then
@@ -204,12 +243,12 @@ class ReviewServiceSortTest {
 		assertThat(response.pageInfo().totalElements()).isEqualTo(2);
 	}
 
-	private ReviewListResponse findAll(ReviewSortType sortType, Sort.Direction direction) {
-		return findAll(sortType, direction, 0, 10);
+	private ReviewListResponse findAll(ReviewSortType sortType) {
+		return findAll(sortType, 0, 10);
 	}
 
-	private ReviewListResponse findAll(ReviewSortType sortType, Sort.Direction direction, int page, int size) {
-		return reviewService.findAll(null, null, null, null, false, sortType, direction, PageRequest.of(page, size));
+	private ReviewListResponse findAll(ReviewSortType sortType, int page, int size) {
+		return reviewService.findAll(null, null, null, null, false, sortType, PageRequest.of(page, size));
 	}
 
 	private List<String> contents(ReviewListResponse response) {

@@ -10,7 +10,6 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +53,7 @@ public class ReviewService {
 	private final AdminRepository adminRepository;
 
 	/**
-	 * 리뷰 목록. {@code pageable}에서는 페이지 번호와 크기만 쓰고 정렬은 {@code sortType}·{@code direction}이 정한다.
+	 * 삭제되지 않은 리뷰 목록. {@code pageable}에서는 페이지 번호와 크기만 쓰고 정렬은 {@code sortType}이 정한다.
 	 *
 	 * <p>정렬은 모든 기준을 {@link ReviewSpecifications#orderBy}가 건다. Spring Data는 {@code Pageable}에
 	 * 정렬이 있으면 Specification의 정렬을 덮어쓰므로, 호출하는 쪽이 정렬이 담긴 {@code Pageable}을 넘겨도
@@ -67,7 +66,6 @@ public class ReviewService {
 		ReviewStatus status,
 		boolean hasBadWordOnly,
 		ReviewSortType sortType,
-		Sort.Direction direction,
 		Pageable pageable
 	) {
 		LocalDateTime createdAfter = periodType == null ? null : periodType.resolveCreatedAfter(LocalDateTime.now());
@@ -78,7 +76,7 @@ public class ReviewService {
 			status,
 			createdAfter,
 			hasBadWordOnly
-		).and(ReviewSpecifications.orderBy(sortType, direction));
+		).and(ReviewSpecifications.orderBy(sortType));
 
 		Pageable unsortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
 

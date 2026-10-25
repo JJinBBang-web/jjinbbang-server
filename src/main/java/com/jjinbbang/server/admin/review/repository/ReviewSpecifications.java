@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
 import com.jjinbbang.server.admin.moderation.entity.Report;
@@ -18,8 +17,6 @@ import com.jjinbbang.server.domain.review.type.ReviewStatus;
 import com.jjinbbang.server.domain.user.entity.User;
 import com.jjinbbang.server.domain.user.entity.User_;
 
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.FetchParent;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
@@ -94,7 +91,7 @@ public final class ReviewSpecifications {
 	}
 
 	/**
-	 * 정렬 기준과 방향에 맞는 {@code ORDER BY}를 건다. 모든 기준을 여기서 처리한다.
+	 * 프론트의 정렬 선택지에 맞는 {@code ORDER BY}를 건다. 모든 기준을 여기서 처리한다.
 	 *
 	 * <p>{@code REPORT}는 신고 건수가 {@code reviews}의 컬럼이 아니라 {@code reports}를 세야 나와서
 	 * {@link org.springframework.data.domain.Sort}로 표현할 수 없다 — 상관 서브쿼리를 {@code ORDER BY}에 쓴다.
@@ -107,26 +104,24 @@ public final class ReviewSpecifications {
 	 * <p>신고 건수는 처리 상태를 가리지 않고 센다 — 목록에 내려주는 {@code reportCount}와 같은 기준이다.
 	 *
 	 * <p>동률일 때 페이지 경계에서 행이 중복되거나 빠지지 않도록 {@code id}까지 정렬 키에 넣는다.
-	 * {@code LATEST}는 방향을 {@code createdAt}·{@code id}에 같이 적용하고,
-	 * {@code RATING}·{@code REPORT}는 동률을 항상 최신순({@code createdAt DESC, id DESC})으로 푼다.
+	 * 모든 정렬의 동률은 최신순({@code createdAt DESC, id DESC})으로 푼다.
 	 */
-	public static Specification<Review> orderBy(ReviewSortType sortType, Sort.Direction direction) {
+	public static Specification<Review> orderBy(ReviewSortType sortType) {
 		return (root, query, cb) -> {
 			if (Long.class == query.getResultType()) {
 				return null;
 			}
 
-			boolean ascending = direction.isAscending();
 			Path<?> createdAt = root.get(Review_.createdAt);
 			Path<?> id = root.get(Review_.id);
 
 			List<Order> orders = switch (sortType) {
 				case LATEST -> List.of(
-					directed(cb, createdAt, ascending),
-					directed(cb, id, ascending)
+					cb.desc(createdAt),
+					cb.desc(id)
 				);
-				case RATING -> List.of(
-					directed(cb, root.get(Review_.rating), ascending),
+				case RATING_HIGH, RATING_LOW -> List.of(
+					sortType == ReviewSortType.RATING_LOW ? cb.asc(root.get(Review_.rating)) : cb.desc(root.get(Review_.rating)),
 					cb.desc(createdAt),
 					cb.desc(id)
 				);
@@ -135,16 +130,12 @@ public final class ReviewSpecifications {
 					Root<Report> report = reportCount.from(Report.class);
 					reportCount.select(cb.count(report)).where(cb.equal(report.get(Report_.review), root));
 
-					yield List.of(directed(cb, reportCount, ascending), cb.desc(createdAt), cb.desc(id));
+					yield List.of(cb.desc(reportCount), cb.desc(createdAt), cb.desc(id));
 				}
 			};
 			query.orderBy(orders);
 
 			return null;
 		};
-	}
-
-	private static Order directed(CriteriaBuilder cb, Expression<?> expression, boolean ascending) {
-		return ascending ? cb.asc(expression) : cb.desc(expression);
 	}
 }

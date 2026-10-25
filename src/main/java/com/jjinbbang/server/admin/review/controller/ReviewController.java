@@ -35,9 +35,9 @@ import lombok.RequiredArgsConstructor;
 /**
  * 리뷰 관리. 어드민 웹의 "리뷰 관리" 화면이 호출한다.
  *
- * <p>정렬은 기준({@code sort})과 방향({@code direction})을 따로 받는다. 정렬은 서비스가
+ * <p>정렬은 {@code LATEST}, {@code REPORT}, {@code RATING_HIGH}, {@code RATING_LOW} 중 하나다. 정렬은 서비스가
  * Specification으로 걸기 때문에 {@code Pageable}에는 페이지 번호와 크기만 담아 넘긴다.
- * 두 값 모두 enum 이름 그대로(대문자) 받으며, 그 밖의 값은 400 {@code INVALID_TYPE}이 된다.
+ * enum 이름 그대로(대문자) 받으며, 그 밖의 값은 400 {@code INVALID_TYPE}이 된다.
  */
 @RestController
 @RequiredArgsConstructor
@@ -54,7 +54,6 @@ public class ReviewController {
 		@RequestParam(name = "status", required = false) ReviewStatus status,
 		@RequestParam(name = "hasBadWordOnly", defaultValue = "false") boolean hasBadWordOnly,
 		@RequestParam(name = "sort", defaultValue = "LATEST") ReviewSortType sort,
-		@RequestParam(name = "direction", defaultValue = "DESC") Sort.Direction direction,
 		@RequestParam(name = "page", defaultValue = "0") int page,
 		@RequestParam(name = "size", defaultValue = PageRequests.DEFAULT_SIZE_PARAM) int size
 	) {
@@ -65,7 +64,6 @@ public class ReviewController {
 			status,
 			hasBadWordOnly,
 			sort,
-			direction,
 			PageRequests.of(page, size, Sort.unsorted())
 		);
 
