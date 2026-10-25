@@ -92,7 +92,7 @@ class ReviewServiceTest {
 			.willReturn(new PageImpl<>(List.of(), PAGEABLE, 0));
 
 		// when
-		ReviewListResponse response = reviewService.findAll(null, null, null, null, false, ReviewSortType.LATEST, Sort.Direction.DESC, PAGEABLE);
+		ReviewListResponse response = reviewService.findAll(null, null, null, null, false, ReviewSortType.LATEST, PAGEABLE);
 
 		// then
 		assertThat(response.reviewList()).isEmpty();
@@ -113,7 +113,7 @@ class ReviewServiceTest {
 
 		// when
 		List<ReviewResponse> reviewList = reviewService
-			.findAll(null, null, null, null, false, ReviewSortType.LATEST, Sort.Direction.DESC, PAGEABLE)
+			.findAll(null, null, null, null, false, ReviewSortType.LATEST, PAGEABLE)
 			.reviewList();
 
 		// then
@@ -135,7 +135,7 @@ class ReviewServiceTest {
 		given(reportRepository.countByReviewIdIn(List.of(1L))).willReturn(List.of());
 
 		// when
-		ReviewResponse response = reviewService.findAll(null, null, null, null, false, ReviewSortType.LATEST, Sort.Direction.DESC, PAGEABLE)
+		ReviewResponse response = reviewService.findAll(null, null, null, null, false, ReviewSortType.LATEST, PAGEABLE)
 			.reviewList()
 			.getFirst();
 
@@ -153,7 +153,7 @@ class ReviewServiceTest {
 			.willReturn(new PageImpl<>(List.of(), PAGEABLE, 0));
 
 		// when
-		reviewService.findAll("키워드", List.of("찐빵대학교"), null, ReviewStatus.PUBLIC, true, ReviewSortType.LATEST, Sort.Direction.DESC, PAGEABLE);
+		reviewService.findAll("키워드", List.of("찐빵대학교"), null, ReviewStatus.PUBLIC, true, ReviewSortType.LATEST, PAGEABLE);
 
 		// then
 		then(reviewRepository).should().findAll(ArgumentMatchers.<Specification<Review>>any(), eq(PAGEABLE));
@@ -169,7 +169,7 @@ class ReviewServiceTest {
 			.willReturn(new PageImpl<>(List.of(), PAGEABLE, 0));
 
 		// when
-		reviewService.findAll(null, null, null, null, false, sortType, Sort.Direction.ASC, inputWithSort);
+		reviewService.findAll(null, null, null, null, false, sortType, inputWithSort);
 
 		// then
 		then(reviewRepository).should().findAll(ArgumentMatchers.<Specification<Review>>any(), eq(PAGEABLE));

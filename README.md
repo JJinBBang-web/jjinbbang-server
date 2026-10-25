@@ -196,6 +196,31 @@ throw ReviewErrorCode.REVIEW_NOT_FOUND.exception();
 
 컨벤션 전체와 자동화 에이전트 작업 규칙은 [`AGENTS.md`](AGENTS.md)를 본다.
 
+## 관리자 리뷰 목록 API
+
+`GET /api/admin/reviews`의 `sort`는 다음 네 가지다. 기본값은 `LATEST`다.
+
+| sort | 순서 |
+| --- | --- |
+| `LATEST` | 작성일 최신순 |
+| `REPORT` | 신고 많은 순 (처리 상태와 무관한 전체 신고 수) |
+| `RATING_HIGH` | 별점 높은 순 |
+| `RATING_LOW` | 별점 낮은 순 |
+
+동률은 작성일 내림차순, ID 내림차순으로 정렬해 페이지 순서를 고정한다.
+별도 `direction` 파라미터와 `RATING` 값은 사용하지 않는다.
+
+```text
+GET /api/admin/reviews?hasBadWordOnly=false&sort=LATEST&page=0&size=10
+GET /api/admin/reviews?hasBadWordOnly=false&sort=RATING_HIGH&page=0&size=10
+```
+
+소프트 삭제된 리뷰(`deleted_at IS NOT NULL`)는 필터·정렬에 관계없이 목록과
+`pageInfo.totalElements`·`totalPages` 집계에서 제외한다. 목록의 상태 필터와
+응답은 `PUBLIC`·`PRIVATE`를 사용하며 `DELETED`를 추가하지 않는다.
+복구 API는 제공하지 않는다. 신고 검토를 위한 상세 조회와 신고 기록은 유지한다.
+DB 스키마와 Flyway 변경은 없다.
+
 ## 현재 상태
 
 `global` 응답·예외 처리, 전체 초기 엔티티, MySQL datasource, Flyway와 관리자

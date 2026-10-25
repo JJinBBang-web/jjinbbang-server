@@ -9,6 +9,8 @@ import javax.sql.DataSource;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -175,6 +177,41 @@ class ReviewSpecificationsTest {
 		// then — LazyInitializationException 없이 바로 접근되면 fetch 가 된 것이다
 		Review review = page.getContent().getFirst();
 		assertThat(review.getUser().getUniversity().getName()).isEqualTo("경상국립대학교");
+	}
+
+	@ParameterizedTest
+	@EnumSource(ReviewStatus.class)
+	@DisplayName("삭제된 공개·비공개 리뷰는 목록과 전체 건수에서 빠지고 상세 감사 조회는 유지된다")
+	void 삭제된_리뷰는_목록과_집계에서_빠진다(ReviewStatus status) {
+		Long userId = insertUser(busanUniversityId);
+		for (int i = 0; i < 3; i++) {
+			insertReview(userId, "정상 리뷰" + i, status, LocalDateTime.now());
+		}
+		Long deletedId = insertReview(userId, "삭제 리뷰", status, LocalDateTime.now());
+		jdbcTemplate.update("UPDATE reviews SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", deletedId);
+
+		for (ReviewStatus filter : new ReviewStatus[] {null, status}) {
+			var spec = ReviewSpecifications.withFilters(null, List.of("부산대학교"), filter, null, false);
+			Page<Review> page = reviewRepository.findAll(spec, PageRequest.of(0, 1));
+			assertThat(page.getTotalElements()).isEqualTo(3);
+			assertThat(page.getTotalPages()).isEqualTo(3);
+			assertThat(reviewRepository.findAll(spec)).extracting(Review::getId).doesNotContain(deletedId);
+		}
+		assertThat(reviewRepository.findDetailById(deletedId)).isPresent();
+	}
+
+	@Test
+	@DisplayName("삭제된 리뷰만 남았으면 빈 목록과 0건을 응답한다")
+	void 삭제된_리뷰만_있으면_빈_목록이다() {
+		Long userId = insertUser(seoulUniversityId);
+		Long deletedId = insertReview(userId, "삭제 리뷰", LocalDateTime.now());
+		jdbcTemplate.update("UPDATE reviews SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", deletedId);
+
+		Page<Review> page = reviewRepository.findAll(
+			ReviewSpecifications.withFilters(null, null, null, null, false), PageRequest.of(0, 10));
+
+		assertThat(page.getContent()).isEmpty();
+		assertThat(page.getTotalElements()).isZero();
 	}
 
 	private Long insertUniversity(String name) {
