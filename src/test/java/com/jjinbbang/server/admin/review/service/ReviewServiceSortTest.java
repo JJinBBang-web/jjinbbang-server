@@ -80,17 +80,20 @@ class ReviewServiceSortTest {
 		"RATING_HIGH,오래됨,최신,중간",
 		"RATING_LOW,중간,최신,오래됨"
 	})
-	@DisplayName("프론트의 네 가지 정렬 요청은 MySQL 결과 순서와 페이지를 결정한다")
+	@DisplayName("프론트의 네 가지 정렬 요청은 MySQL 결과 순서를 바꾸고 삭제 리뷰를 제외한 페이지와 건수를 반환한다")
 	void 프론트_요청부터_페이지_응답까지_검증한다(String sort, String first, String second, String third) throws Exception {
 		Long userId = insertUser(seoulUniversityId);
 		LocalDateTime now = LocalDateTime.now();
 		Long older = insertReview(userId, "오래됨", 5, now.minusDays(2));
 		Long middle = insertReview(userId, "중간", 1, now.minusDays(1));
 		insertReview(userId, "최신", 3, now);
+		Long deleted = insertReview(userId, "삭제 리뷰", 5, now.plusMinutes(1));
 		insertReport(older, "PENDING");
 		for (int i = 0; i < 3; i++) {
 			insertReport(middle, "PENDING");
+			insertReport(deleted, "PENDING");
 		}
+		reviewService.delete(deleted);
 		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(reviewService))
 			.setControllerAdvice(new GlobalExceptionHandler()).build();
 

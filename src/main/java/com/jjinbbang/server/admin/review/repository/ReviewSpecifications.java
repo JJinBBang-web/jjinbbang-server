@@ -69,6 +69,7 @@ public final class ReviewSpecifications {
 			}
 
 			List<Predicate> predicates = new ArrayList<>();
+			predicates.add(cb.isNull(root.get(Review_.deletedAt)));
 
 			if (keyword != null && !keyword.isBlank()) {
 				predicates.add(cb.like(root.get(Review_.originalContent), "%" + keyword + "%"));
